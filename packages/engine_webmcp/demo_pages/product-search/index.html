@@ -1,0 +1,55 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <title>WebMCP Demo — Product Search</title>
+  <style>
+    body { font-family: system-ui, sans-serif; max-width: 32rem; margin: 3rem auto; }
+    .product { padding: 0.4rem 0; border-bottom: 1px solid #ddd; }
+  </style>
+</head>
+<body>
+  <h1>WebMCP Demo — Product Search</h1>
+  <p>This page registers a <code>search-products</code> tool, modeled on the
+     <code>get-dresses</code> / e-commerce example in the WebMCP explainer.</p>
+  <div id="results"></div>
+
+  <script src="/webmcp-polyfill.js"></script>
+  <script>
+    const CATALOG = [
+      { id: 1, name: "Wireless Mouse", category: "electronics", price: 799 },
+      { id: 2, name: "Mechanical Keyboard", category: "electronics", price: 3499 },
+      { id: 3, name: "Yoga Mat", category: "fitness", price: 999 },
+      { id: 4, name: "Water Bottle", category: "fitness", price: 499 },
+      { id: 5, name: "Desk Lamp", category: "home", price: 1299 },
+    ];
+
+    function renderResults(items) {
+      const div = document.getElementById("results");
+      div.innerHTML = items
+        .map((i) => `<div class="product">${i.name} — Rs. ${i.price} (${i.category})</div>`)
+        .join("");
+    }
+    renderResults(CATALOG);
+
+    document.modelContext.registerTool({
+      name: "search-products",
+      description: "Search the product catalog by category and/or maximum price",
+      inputSchema: {
+        type: "object",
+        properties: {
+          category: { type: "string", description: "Optional category to filter by" },
+          maxPrice: { type: "number", description: "Optional maximum price in rupees" },
+        },
+      },
+      execute({ category, maxPrice }) {
+        const filtered = CATALOG.filter(
+          (p) => (!category || p.category === category) && (maxPrice == null || p.price <= maxPrice)
+        );
+        renderResults(filtered);
+        return { content: [{ type: "text", text: JSON.stringify(filtered) }] };
+      },
+    });
+  </script>
+</body>
+</html>

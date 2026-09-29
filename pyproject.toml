@@ -1,0 +1,25 @@
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "mcp-browser-hybrid"
+version = "0.1.0"
+description = "MCP-Based Autonomous Browser Agent -- hybrid WebMCP + Playwright dual-engine agent (Vishwakarma University BTECCE23706 major project)"
+requires-python = ">=3.10"
+dependencies = [
+    # Pinned below 2.0 on purpose: v2 is tied to a not-yet-final spec revision.
+    "mcp[cli]>=1.2,<2",
+    "playwright>=1.47,<2",
+    "python-dotenv>=1.0,<2",
+]
+
+[project.optional-dependencies]
+# Phase 4 onward only -- Phases 0-3 need no LLM at all.
+# Version pins are best-effort: this build environment has no network access
+# to check current PyPI versions, so if a pin fails to resolve, install the
+# package with no version constraint.
+agent = ["google-genai>=2.0", "anthropic>=1.0,<2"]
+
+[tool.setuptools.packages.find]
+where = ["packages"]

@@ -1,0 +1,59 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <title>WebMCP Demo — Todo List</title>
+  <style>
+    body { font-family: system-ui, sans-serif; max-width: 32rem; margin: 3rem auto; }
+    #todo-list { padding-left: 1.25rem; }
+  </style>
+</head>
+<body>
+  <h1>WebMCP Demo — Todo List</h1>
+  <p>This page registers two WebMCP tools: <code>add-todo</code> and <code>list-todos</code>,
+     modeled directly on the <code>add-todo</code> example in the WebMCP explainer.</p>
+  <ul id="todo-list"></ul>
+
+  <!-- Our polyfill, served by demo_pages/server.py -->
+  <script src="/webmcp-polyfill.js"></script>
+  <script>
+    const todos = [];
+
+    function render() {
+      const ul = document.getElementById("todo-list");
+      ul.innerHTML = "";
+      for (const item of todos) {
+        const li = document.createElement("li");
+        li.textContent = item;
+        ul.appendChild(li);
+      }
+    }
+
+    document.modelContext.registerTool({
+      name: "add-todo",
+      description: "Add a new item to the user's active todo list",
+      inputSchema: {
+        type: "object",
+        properties: {
+          text: { type: "string", description: "The text content of the todo item" },
+        },
+        required: ["text"],
+      },
+      async execute({ text }) {
+        todos.push(text);
+        render();
+        return { content: [{ type: "text", text: `Added todo item: "${text}" successfully.` }] };
+      },
+    });
+
+    document.modelContext.registerTool({
+      name: "list-todos",
+      description: "Returns the current todo list as a JSON array of strings",
+      inputSchema: { type: "object", properties: {} },
+      execute() {
+        return { content: [{ type: "text", text: JSON.stringify(todos) }] };
+      },
+    });
+  </script>
+</body>
+</html>

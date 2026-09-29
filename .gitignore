@@ -1,0 +1,18 @@
+__pycache__/
+*.pyc
+*.pyo
+.venv/
+venv/
+env/
+*.egg-info/
+.env
+*.log
+.DS_Store
+Thumbs.db
+
+# Playwright's downloaded browser binaries are OS/arch-specific -- never commit these.
+# Each teammate runs `playwright install chromium` locally after cloning.
+.cache/ms-playwright/
+
+# Phase 5 raw logging output -- keep summaries, not raw dumps, in git
+packages/agent/logs/*.jsonl
