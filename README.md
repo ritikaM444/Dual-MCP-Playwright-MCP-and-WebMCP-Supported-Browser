@@ -4,8 +4,7 @@ A hybrid **dual-engine** browser agent. You type a task in plain English; the
 agent drives a real browser to complete it, choosing at runtime between two
 different ways of controlling each page.
 
-Vishwakarma University, Pune — Department of Computer Engineering
-Major Project (BTECCE23706), A.Y. 2026-27
+
 
 ---
 
