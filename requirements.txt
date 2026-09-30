@@ -1,7 +1,8 @@
-# Equivalent to `pip install -e .` -- kept as a plain requirements.txt too
-# since some course setups expect one.
 mcp[cli]>=1.2,<2
 playwright>=1.47,<2
 python-dotenv>=1.0,<2
-google-genai>=2.0    # Phase 4+, default provider
-anthropic>=1.0,<2       # Phase 4+, alternate provider
+openai>=1.40          # OmniRoute / OpenAI-compatible provider
+google-genai>=2.0     # Gemini provider
+anthropic>=1.0,<2     # Claude provider
+fastapi>=0.110        # web UI
+uvicorn>=0.27         # web UI server

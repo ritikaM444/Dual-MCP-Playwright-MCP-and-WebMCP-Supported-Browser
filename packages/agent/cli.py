@@ -1,15 +1,18 @@
 """
-Phase 4: minimal chat interface. Shows, per step, which engine handled
-that step (both Agent classes print an "engine=..." line per tool call).
+Terminal chat interface. The web UI (python -m webapp.server) is the one
+to demo; this stays for quick testing without a browser tab.
 
-Picks the provider from LLM_PROVIDER in .env: "gemini" (default, free)
-or "anthropic". Both Agents share run_task()/close(), so nothing here
-needs to know which is active.
+LLM_PROVIDER in .env picks the backend:
+  omniroute  -- local gateway, auto-falls-back across free providers (no
+                rate-limit cliff); needs `omniroute` running separately
+  gemini     -- direct Google Gemini (free key, but ~20 req/day on full
+                Flash models, ~500 on Flash-Lite)
+  anthropic  -- direct Claude (needs billing)
 
-For the visible "watch it work" demo, set HEADLESS=false and SLOW_MO=500
-in .env before running.
+All three share the same interface, so switching is one word in .env.
 
-Run with: python -m agent.cli
+Set HEADLESS=false and SLOW_MO=500 to watch Chromium work.
+Run: python -m agent.cli
 """
 from __future__ import annotations
 
@@ -24,6 +27,8 @@ PROVIDER = os.environ.get("LLM_PROVIDER", "gemini").lower()
 
 if PROVIDER == "anthropic":
     from .agent import Agent
+elif PROVIDER in {"omniroute", "openai"}:
+    from .agent_openai import Agent
 else:
     from .agent_gemini import Agent
 
@@ -31,8 +36,8 @@ else:
 async def main() -> None:
     agent = Agent()
     visible = os.environ.get("HEADLESS", "true").lower() == "false"
-    mode = "visible browser" if visible else "headless"
-    print(f"MCP Browser Agent ({PROVIDER}, {mode}) -- type an instruction, or 'quit' to exit.\n")
+    print(f"MCP Browser Agent ({PROVIDER}, {'visible browser' if visible else 'headless'}) "
+          "-- type an instruction, or 'quit' to exit.\n")
     try:
         while True:
             try:
@@ -43,8 +48,7 @@ async def main() -> None:
                 continue
             if instruction.lower() in {"quit", "exit"}:
                 break
-            reply = await agent.run_task(instruction)
-            print(f"\n{reply}\n")
+            print(f"\n{await agent.run_task(instruction)}\n")
     finally:
         await agent.close()
 

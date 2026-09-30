@@ -1,0 +1,19 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8"/><title>WebMCP Demo — Analytics Dashboard</title>
+<style>body{font-family:system-ui,sans-serif;max-width:32rem;margin:3rem auto}.metric{padding:.4rem 0;border-bottom:1px solid #ddd}</style></head>
+<body>
+<h1>WebMCP Demo — Analytics Dashboard</h1>
+<p>Tools: <code>list-metrics</code>, <code>get-metric</code> — read-only queries, no mutation.</p>
+<div id="metrics"></div>
+<script src="/webmcp-polyfill.js"></script>
+<script>
+const METRICS={visitors:15234,revenue:82000,signups:342,bounceRate:0.38};
+document.getElementById("metrics").innerHTML=Object.entries(METRICS).map(([k,v])=>`<div class="metric">${k}: ${v}</div>`).join("");
+document.modelContext.registerTool({name:"list-metrics",description:"List the names of all available metrics",
+inputSchema:{type:"object",properties:{}},
+execute(){return{content:[{type:"text",text:JSON.stringify(Object.keys(METRICS))}]};}});
+document.modelContext.registerTool({name:"get-metric",description:"Get the current value of a named metric",
+inputSchema:{type:"object",properties:{metric:{type:"string",description:"One of the names from list-metrics"}},required:["metric"]},
+execute({metric}){if(!(metric in METRICS))return{content:[{type:"text",text:`Unknown metric "${metric}". Try list-metrics first.`}]};
+return{content:[{type:"text",text:JSON.stringify({metric,value:METRICS[metric]})}]};}});
+</script></body></html>

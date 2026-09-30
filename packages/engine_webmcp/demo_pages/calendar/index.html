@@ -1,0 +1,20 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8"/><title>WebMCP Demo — Event Calendar</title>
+<style>body{font-family:system-ui,sans-serif;max-width:32rem;margin:3rem auto}.event{padding:.4rem 0;border-bottom:1px solid #ddd}</style></head>
+<body>
+<h1>WebMCP Demo — Event Calendar</h1>
+<p>Tools: <code>create-event</code>, <code>list-events</code> — create-then-list with structured multi-field data.</p>
+<div id="events"></div>
+<script src="/webmcp-polyfill.js"></script>
+<script>
+const events=[];
+function render(){document.getElementById("events").innerHTML=events.map(e=>`<div class="event">${e.date} ${e.time} -- ${e.title}</div>`).join("")||"<em>no events yet</em>";}
+render();
+document.modelContext.registerTool({name:"create-event",description:"Create a new calendar event",
+inputSchema:{type:"object",properties:{title:{type:"string",description:"Event title"},date:{type:"string",description:"Date, e.g. 2026-10-01"},time:{type:"string",description:"Time, e.g. 10:00 AM"}},required:["title","date","time"]},
+execute({title,date,time}){events.push({title,date,time});render();
+return{content:[{type:"text",text:`Created event "${title}" on ${date} at ${time}.`}]};}});
+document.modelContext.registerTool({name:"list-events",description:"List all created events",
+inputSchema:{type:"object",properties:{}},
+execute(){return{content:[{type:"text",text:JSON.stringify(events)}]};}});
+</script></body></html>

@@ -1,140 +1,157 @@
 # MCP-Based Autonomous Browser Agent
 
-Hybrid dual-engine browser agent — WebMCP (Engine 1) + Playwright MCP (Engine 2) —
-Vishwakarma University, Dept. of Computer Engineering, Major Project (BTECCE23706).
+A hybrid **dual-engine** browser agent. You type a task in plain English; the
+agent drives a real browser to complete it, choosing at runtime between two
+different ways of controlling each page.
 
-**Status: Phase 0–4 complete, pure Python.** Phases 0-3 have been run for
-real on real hardware and passed (see the controller/engine_webmcp READMEs).
-Phase 4 (the LLM agent) is built and checked as far as a sandbox with no
-network can check it — see `packages/agent/README.md` for exactly what
-that means. Phase 5 (demo script + comparative logging) is next.
+Vishwakarma University, Pune — Department of Computer Engineering
+Major Project (BTECCE23706), A.Y. 2026-27
 
-This was originally scaffolded in Node/TypeScript, then rewritten to Python
-end to end at the user's request — which also resolves a real inconsistency:
-the proposal's own Technology Selection table already said "Python" for agent
-orchestration.
+---
 
-## The one thing that's still JavaScript, and why it has to be
+## The idea
 
-`packages/engine_webmcp/polyfill/webmcp-polyfill.js` and the two demo pages'
-inline `<script>` tags are JavaScript, not Python — and can't become Python.
-`document.modelContext` is a *browser* API; it only exists inside a page's own
-JS execution context, the same way any website's client-side script does.
-This has nothing to do with Node or npm — you will not run `npm`, `node`, or
-any JS toolchain anywhere in this project. The browser (Chromium, driven by
-Playwright) is what executes that JS, exactly as it would execute a real
-site's own scripts. Everything that orchestrates, tests, or drives the
-browser — servers, capability checks, the bridge, the demo page's static file
-server — is plain Python.
+Today's browser agents read a page's pixels or raw HTML and *guess* which
+element to click. That works everywhere, but it's slow, expensive in tokens,
+and breaks when a site changes its layout.
 
-## ⚠️ Built with no network access — read this before you run anything
+**WebMCP** — a W3C Web Machine Learning Community Group draft from Google and
+Microsoft — proposes the opposite: a page *declares* its own capabilities as
+callable tools, so an agent invokes a function instead of inferring a click.
+Precise and cheap, but almost no live site implements it yet.
 
-This repo was written in a sandboxed environment with no access to PyPI,
-GitHub, or live websites (`pip install` can't reach the index here). Every
-file was hand-written and syntax-checked (`python -m py_compile`, `node
---check` for the one JS file) but **nothing in here has actually been
-executed yet.** On your machine (which has real network access):
+This project resolves that tension at runtime:
+
+| | Engine 1 — WebMCP | Engine 2 — Playwright |
+|---|---|---|
+| How it acts | Calls the page's own declared tools | DOM automation (click / type / extract) |
+| Speed & cost | Fast, few tokens, structured JSON | Slower, token-heavy |
+| Works on | Pages that expose a tool registry | Any website |
+
+An **Agent Controller Layer** probes every page as it loads, picks the right
+engine, and normalises both engines' very different outputs into one shape —
+so the planning model never knows or cares which one ran.
+
+## Architecture
+
+```
+You  →  Web UI / CLI
+            ↓
+        LLM planner  (Gemini · OmniRoute · Claude — interchangeable)
+            ↓
+        Agent Controller Layer   ← capability probe on every navigation
+            ↓                        router · normaliser · task state
+     ┌──────┴──────┐
+ Engine 1        Engine 2
+ WebMCP          Playwright MCP
+     └──────┬──────┘
+        One shared Chromium session
+```
+
+Both engines act on the **same live browser session**, which is what makes a
+mid-task engine switch coherent — and what makes the Engine 1 vs Engine 2
+comparison fair.
+
+## Quick start
 
 ```bash
 python3 -m venv .venv
 source .venv/bin/activate          # Windows: .venv\Scripts\activate
-pip install -e ".[agent]"          # or: pip install -r requirements.txt
+pip install -e ".[agent]"
 playwright install chromium
 
-python -m engine_playwright.test_client      # Phase 1 standalone test, no LLM
-
-# in a second terminal:
-python packages/engine_webmcp/demo_pages/server.py
-# back in the first terminal:
-python -m engine_webmcp.test_client           # Phase 2 standalone test, no LLM
+cp .env.example .env               # then add your API key
 ```
 
-Some of the real websites used for testing (see below) may have changed
-layout, started blocking headless Chromium, or gone offline since this was
-written — that's expected of "test against real sites," not a bug in the
-code. If one breaks, swap the selector or the site; the pattern is what
-matters.
+Get a free Gemini key at [aistudio.google.com/apikey](https://aistudio.google.com/apikey).
 
-## Why the MCP Python SDK is pinned to v1 (`mcp>=1.2,<2`)
+Run it — three terminals, each with the venv activated:
 
-Same due-diligence problem as WebMCP, on the SDK side this time: the official
-`mcp` Python SDK is mid-migration to a v2 that's still beta/RC as of this
-writing, tied to a not-yet-finalized 2026-07-28 spec revision — sources
-disagree on whether a bare `pip install mcp` currently resolves to v1.x or
-2.x. Rather than build Phase 3/4 against a moving target that could still
-change API shape before your Nov Review 3, this pins to the well-documented,
-stable v1.x line (`FastMCP`, `@mcp.tool()` decorators, `ClientSession` +
-`stdio_client`) used throughout `server.py` / `test_client.py`. Re-check this
-before Review 2 in case v1 has since gone end-of-life.
+```bash
+python packages/engine_webmcp/demo_pages/server.py   # 1: WebMCP demo apps
+python -m webapp.server                              # 2: UI on localhost:8000
+python -m agent.cli                                  # 3: (optional) terminal chat
+```
 
-## Two things verified before writing Phase 2, worth knowing for the literature survey
+Set `HEADLESS=false` and `SLOW_MO=500` in `.env` to watch Chromium work.
 
-1. **`webmachinelearning/webmcp` has no JS polyfill.** It's a spec-text repo
-   (98.7% Bikeshed, no runnable JS). `document.modelContext.registerTool()` is
-   fully specified and our demo pages use it exactly as documented. But
-   **external discovery/invocation is explicitly unspecified** — the explainer
-   says outright: *"TODO: Spec and describe the `modelContext.getTools()` and
-   `modelContext.executeTool()` APIs."* So `polyfill/webmcp-polyfill.js`
-   implements the real, documented `registerTool()` faithfully, and adds
-   `getTools()`/`callTool()` ourselves to fill that documented gap — a
-   legitimate, citable design decision for Parameter 1 (research gap), not a
-   shortcut to gloss over.
-2. **MCP SDK versioning is in flux on both sides of the stack** (Python here,
-   TypeScript when this was still Node) — see above.
+### Try it
 
-## Structure
+```
+go to http://localhost:4173/shopping-cart/ and add 2 running shoes, then check out
+```
+```
+go to news.ycombinator.com and tell me the top story
+```
+
+The first runs on Engine 1, the second on Engine 2 — the UI labels every step.
+
+## Choosing an LLM provider
+
+One line in `.env` (`LLM_PROVIDER=`):
+
+- **`gemini`** — free key, no card. Note the free tier gives ~500 requests/day
+  on Flash-Lite but only ~20 on full Flash models.
+- **`omniroute`** — routes through a local [OmniRoute](https://github.com/diegosouzapw/OmniRoute)
+  gateway that fans out across many free providers and falls back automatically
+  when one hits its quota. Best for long demos.
+- **`anthropic`** — direct Claude; needs billing.
+
+All three implement the same interface, so switching is one word.
+
+## Project layout
 
 ```
 packages/
-  engine_playwright/    Engine 2 -- Playwright actions (actions.py) + MCP server wrapper (server.py)
-  engine_webmcp/          Engine 1 -- WebMCP capability check + native bridge + polyfill (JS) + demo pages (HTML/JS)
-  controller/              Phase 3 -- router + normalizer + task state + Controller (done)
-  agent/                   Phase 4 -- plan/act loop (agent.py) + CLI chat interface (cli.py) (done)
+  engine_playwright/   Engine 2 — Playwright actions + MCP server
+  engine_webmcp/       Engine 1 — capability probe, native bridge,
+                       WebMCP polyfill, 8 demo apps
+  controller/          Router, output normaliser, task state
+  agent/               Plan/act loop (3 providers), CLI, run logging
+  webapp/              Web UI with live per-step engine indicators
 ```
 
-Installed as editable Python packages via `pip install -e .` (see
-`pyproject.toml`, `[tool.setuptools.packages.find] where = ["packages"]`), so
-`engine_playwright`, `engine_webmcp`, `controller`, and `agent` import
-directly by name from anywhere in the project — no relative-path hacks needed
-once the controller (Phase 3) needs to import both engines.
+## Testing
 
-## Demo site choices for Engine 2 (Phase 1 test + later ESE demo)
+```bash
+python -m engine_playwright.test_client   # Engine 2 against real websites
+python -m engine_webmcp.test_client       # Engine 1 against all 8 demo apps
+python -m controller.test_controller      # engine switching, no LLM involved
+python -m agent.analyze_runs              # Engine 1 vs Engine 2 metrics
+```
 
-Picked specifically to avoid anti-bot/CAPTCHA surprises on demo day:
+Every task run appends success, latency, token cost and per-engine step
+counts to `packages/agent/logs/runs.jsonl`.
 
-- `the-internet.herokuapp.com` — a QA-automation *practice* site (built to be
-  automated against, so it won't add bot defenses or change structure).
-  Login page covers click+type; `/tables` covers structured extraction.
-- `news.ycombinator.com` — plain server-rendered HTML, stable markup, good for
-  a search+summarize-style task.
+## Notes on the WebMCP polyfill
 
-Run `python -m engine_playwright.test_client` once and see which of these
-still behave; swap out any that don't before you build the demo script around
-them (Phase 5).
+`webmachinelearning/webmcp` is a specification repository — it contains no
+runnable JavaScript. `document.modelContext.registerTool()` is fully
+specified and the demo apps use it exactly as documented, but **external tool
+discovery is explicitly left open** in the spec:
 
-## Open decision that needs your guide's sign-off before Review 1
+> TODO: Spec and describe the `modelContext.getTools()` and
+> `modelContext.executeTool()` APIs.
 
-The proposal itself flags this: how many self-hosted WebMCP demo pages / task
-types count as sufficient for the Engine 1 vs Engine 2 comparison (Parameter 3
-research contribution). Two demo pages exist here (`todo-app`, `product-search`)
-as a starting point, not a final answer — confirm scope with your guide.
+So `packages/engine_webmcp/polyfill/webmcp-polyfill.js` implements the real,
+documented registration API faithfully and adds minimal `getTools()` /
+`callTool()` entry points to fill that gap. This is a deliberate, documented
+design decision, not an undisclosed shortcut.
 
-## Reality check on scope
+That polyfill and the demo apps' inline scripts are the only JavaScript in the
+project — unavoidably so, since `document.modelContext` is a browser API. There
+is no Node or npm toolchain here; Chromium executes that JS exactly as it would
+any website's own scripts. Everything else is Python.
 
-This is a proof-of-concept proving the architecture works — it is not the
-Review 2/3 deliverable on its own. The Engine 1 vs Engine 2 comparative
-logging (success/failure, latency, token cost — Phase 5) needs to keep
-running for weeks across a broad site set, not just during a demo. Start
-that logging now that Phase 4 exists, rather than reconstructing the data
-later.
+## Known limitations
 
-## What's next
+- Real-world WebMCP adoption is effectively zero, so Engine 1 is exercised
+  against self-hosted demo apps. No claim is made about production WebMCP sites.
+- Engine 2's reliability depends on target site structure; dynamic or
+  bot-protected sites can fail, and those failures are logged rather than hidden.
+- Comparative results are currently conditioned on a single planner model.
 
-Phase 5 — demo script + comparative logging: 2-3 task types run back to
-back (search+summarize, form fill, multi-page extraction), at least one
-that starts on a WebMCP demo page and falls back to Engine 2 mid-task, with
-success/failure, latency, and token usage logged per task per engine —
-this is the actual Parameter 3 research data, and it needs to keep running
-for weeks, not just get generated for a demo. Also a good point to add a
-more full-featured WebMCP demo app or two, since Engine 1's data currently
-comes from only two fairly trivial pages.
+## Tech stack
+
+Python 3.10+ · Playwright (async) · MCP Python SDK (FastMCP) · FastAPI ·
+Google Gemini / OpenAI-compatible / Anthropic

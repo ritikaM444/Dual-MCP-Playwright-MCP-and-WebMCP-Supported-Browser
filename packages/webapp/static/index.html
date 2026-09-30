@@ -1,0 +1,120 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8"/>
+<meta name="viewport" content="width=device-width,initial-scale=1"/>
+<title>MCP Hybrid Browser Agent</title>
+<style>
+  :root{--bg:#0f1117;--panel:#171a23;--line:#262b38;--text:#e6e8ee;--muted:#8b93a7;
+        --webmcp:#22c55e;--playwright:#3b82f6;--fail:#ef4444}
+  *{box-sizing:border-box}
+  body{margin:0;background:var(--bg);color:var(--text);
+       font-family:ui-sans-serif,system-ui,sans-serif;display:flex;flex-direction:column;height:100vh}
+  header{padding:1rem 1.5rem;border-bottom:1px solid var(--line);display:flex;
+         align-items:center;gap:1rem;flex-wrap:wrap}
+  h1{font-size:1.05rem;margin:0;font-weight:600}
+  .badge{font-size:.72rem;padding:.2rem .55rem;border-radius:99px;border:1px solid var(--line);color:var(--muted)}
+  main{flex:1;overflow-y:auto;padding:1.25rem 1.5rem}
+  .msg{margin-bottom:1rem;max-width:60rem}
+  .user{color:var(--muted);font-size:.85rem}
+  .step{display:flex;align-items:center;gap:.6rem;padding:.45rem .7rem;margin:.3rem 0;
+        background:var(--panel);border-left:3px solid var(--line);border-radius:4px;
+        font-size:.85rem;font-family:ui-monospace,monospace}
+  .step.webmcp{border-left-color:var(--webmcp)}
+  .step.playwright{border-left-color:var(--playwright)}
+  .step.failed{border-left-color:var(--fail)}
+  .eng{font-size:.7rem;font-weight:700;letter-spacing:.04em;text-transform:uppercase;
+       padding:.15rem .45rem;border-radius:3px}
+  .eng.webmcp{background:rgba(34,197,94,.15);color:var(--webmcp)}
+  .eng.playwright{background:rgba(59,130,246,.15);color:var(--playwright)}
+  .tool{color:var(--text)}.args{color:var(--muted);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+  .reply{background:var(--panel);padding:.9rem 1rem;border-radius:6px;line-height:1.5;white-space:pre-wrap}
+  .err{background:rgba(239,68,68,.1);border:1px solid var(--fail);color:#fca5a5;
+       padding:.8rem 1rem;border-radius:6px;white-space:pre-wrap;font-size:.85rem}
+  footer{border-top:1px solid var(--line);padding:1rem 1.5rem}
+  form{display:flex;gap:.6rem;max-width:60rem}
+  input{flex:1;background:var(--panel);border:1px solid var(--line);color:var(--text);
+        padding:.7rem .9rem;border-radius:6px;font-size:.92rem}
+  input:focus{outline:none;border-color:#3b82f6}
+  button{background:#3b82f6;color:#fff;border:0;padding:.7rem 1.3rem;border-radius:6px;
+         font-weight:600;cursor:pointer}
+  button:disabled{opacity:.5;cursor:not-allowed}
+  .hint{color:var(--muted);font-size:.78rem;margin-top:.55rem}
+  .hint code{background:var(--panel);padding:.1rem .3rem;border-radius:3px;cursor:pointer}
+</style>
+</head>
+<body>
+<header>
+  <h1>MCP Hybrid Browser Agent</h1>
+  <span class="badge" id="provider">…</span>
+  <span class="badge" id="browser">…</span>
+  <span class="badge" style="color:var(--webmcp)">webmcp = Engine 1</span>
+  <span class="badge" style="color:var(--playwright)">playwright = Engine 2</span>
+</header>
+<main id="log"></main>
+<footer>
+  <form id="form">
+    <input id="input" autocomplete="off" placeholder="Tell the agent what to do…"/>
+    <button id="send" type="submit">Run</button>
+  </form>
+  <div class="hint">Try: <code class="ex">go to http://localhost:4173/shopping-cart/ and add 2 running shoes to the cart, then check out</code></div>
+</footer>
+<script>
+const log=document.getElementById("log"),form=document.getElementById("form"),
+      input=document.getElementById("input"),send=document.getElementById("send");
+let demoBase="http://localhost:4173";
+
+fetch("/api/config").then(r=>r.json()).then(c=>{
+  demoBase=c.demo_base;
+  document.getElementById("provider").textContent="provider: "+c.provider;
+  document.getElementById("browser").textContent=c.visible_browser?"visible browser":"headless";
+}).catch(()=>{});
+
+document.querySelectorAll(".ex").forEach(e=>e.onclick=()=>{input.value=e.textContent;input.focus();});
+
+function add(cls,html){const d=document.createElement("div");d.className=cls;d.innerHTML=html;
+  log.appendChild(d);log.scrollTop=log.scrollHeight;return d;}
+function esc(s){return String(s).replace(/[&<>]/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;"}[c]));}
+
+form.onsubmit=async ev=>{
+  ev.preventDefault();
+  const instruction=input.value.trim(); if(!instruction) return;
+  input.value=""; send.disabled=true;
+  add("msg user","▸ "+esc(instruction));
+  const box=add("msg","");
+  try{
+    const res=await fetch("/api/run",{method:"POST",headers:{"Content-Type":"application/json"},
+      body:JSON.stringify({instruction})});
+    const reader=res.body.getReader(),dec=new TextDecoder(); let buf="";
+    while(true){
+      const {done,value}=await reader.read(); if(done) break;
+      buf+=dec.decode(value,{stream:true});
+      const parts=buf.split("\n\n"); buf=parts.pop();
+      for(const p of parts){
+        if(!p.startsWith("data: ")) continue;
+        const e=JSON.parse(p.slice(6));
+        if(e.type==="step"){
+          const failed=e.success?"":" failed";
+          box.insertAdjacentHTML("beforeend",
+            `<div class="step ${e.engine}${failed}">
+               <span class="eng ${e.engine}">${e.engine}</span>
+               <span class="tool">${esc(e.tool)}</span>
+               <span class="args">${esc(JSON.stringify(e.args))}</span>
+               <span>${e.success?"✓":"✕ "+esc(e.error||"")}</span>
+             </div>`);
+        } else if(e.type==="done"){
+          box.insertAdjacentHTML("beforeend",`<div class="reply">${esc(e.reply)}</div>`);
+        } else if(e.type==="error"){
+          box.insertAdjacentHTML("beforeend",`<div class="err">${esc(e.message)}</div>`);
+        }
+        log.scrollTop=log.scrollHeight;
+      }
+    }
+  }catch(err){
+    box.insertAdjacentHTML("beforeend",`<div class="err">${esc(err.message)}</div>`);
+  }
+  send.disabled=false; input.focus();
+};
+</script>
+</body>
+</html>

@@ -1,0 +1,22 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8"/><title>WebMCP Demo — Table Booking</title>
+<style>body{font-family:system-ui,sans-serif;max-width:32rem;margin:3rem auto}.slot{padding:.3rem 0}</style></head>
+<body>
+<h1>WebMCP Demo — Table Booking</h1>
+<p>Tools: <code>check-availability</code>, <code>book-slot</code> — check-then-act, where the second call can legitimately fail.</p>
+<div id="slots"></div>
+<script src="/webmcp-polyfill.js"></script>
+<script>
+const ALL_TIMES=["10:00 AM","11:00 AM","2:00 PM","3:00 PM","4:00 PM"];
+const booked=new Set();
+document.getElementById("slots").innerHTML=ALL_TIMES.map(t=>`<div class="slot">${t}</div>`).join("");
+document.modelContext.registerTool({name:"check-availability",description:"Check which time slots are still open for a given date",
+inputSchema:{type:"object",properties:{date:{type:"string",description:"Date to check, e.g. 2026-10-01"}},required:["date"]},
+execute({date}){const open=ALL_TIMES.filter(t=>!booked.has(`${date}|${t}`));
+return{content:[{type:"text",text:JSON.stringify({date,availableTimes:open})}]};}});
+document.modelContext.registerTool({name:"book-slot",description:"Book a specific date/time slot under a name",
+inputSchema:{type:"object",properties:{date:{type:"string",description:"Date to book"},time:{type:"string",description:"One of the times from check-availability"},name:{type:"string",description:"Name the booking is under"}},required:["date","time","name"]},
+execute({date,time,name}){const k=`${date}|${time}`;
+if(booked.has(k))return{content:[{type:"text",text:`Sorry, ${time} on ${date} is already booked.`}]};
+booked.add(k);return{content:[{type:"text",text:`Booked ${time} on ${date} for ${name}.`}]};}});
+</script></body></html>

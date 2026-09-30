@@ -1,0 +1,31 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8"/><title>WebMCP Demo — Shopping Cart</title>
+<style>body{font-family:system-ui,sans-serif;max-width:32rem;margin:3rem auto}.item{padding:.4rem 0;border-bottom:1px solid #ddd}#total{font-weight:bold;margin-top:.5rem}</style></head>
+<body>
+<h1>WebMCP Demo — Shopping Cart</h1>
+<p>Tools: <code>add-to-cart</code>, <code>view-cart</code>, <code>checkout</code> — a multi-step stateful flow.</p>
+<div id="catalog"></div><h3>Cart</h3><div id="cart"></div><div id="total"></div>
+<script src="/webmcp-polyfill.js"></script>
+<script>
+const CATALOG=[{id:1,name:"Running Shoes",price:2499},{id:2,name:"Yoga Mat",price:999},{id:3,name:"Water Bottle",price:499}];
+const cart=[];
+function renderCatalog(){document.getElementById("catalog").innerHTML=CATALOG.map(p=>`<div class="item">#${p.id} ${p.name} — Rs. ${p.price}</div>`).join("");}
+function renderCart(){document.getElementById("cart").innerHTML=cart.map(c=>`<div class="item">${c.name} x${c.quantity} — Rs. ${c.price*c.quantity}</div>`).join("")||"<em>empty</em>";
+document.getElementById("total").textContent=`Total: Rs. ${cart.reduce((s,c)=>s+c.price*c.quantity,0)}`;}
+renderCatalog();renderCart();
+document.modelContext.registerTool({name:"add-to-cart",description:"Add a product to the shopping cart by its catalog id",
+inputSchema:{type:"object",properties:{productId:{type:"number",description:"The product's catalog id"},quantity:{type:"number",description:"How many to add (default 1)"}},required:["productId"]},
+execute({productId,quantity}){const p=CATALOG.find(x=>x.id===productId);
+if(!p)return{content:[{type:"text",text:`No product with id ${productId}`}]};
+const q=quantity||1;const e=cart.find(c=>c.id===productId);
+if(e)e.quantity+=q;else cart.push({id:p.id,name:p.name,price:p.price,quantity:q});
+renderCart();return{content:[{type:"text",text:JSON.stringify(cart)}]};}});
+document.modelContext.registerTool({name:"view-cart",description:"Returns the current cart contents and total",
+inputSchema:{type:"object",properties:{}},
+execute(){return{content:[{type:"text",text:JSON.stringify({items:cart,total:cart.reduce((s,c)=>s+c.price*c.quantity,0)})}]};}});
+document.modelContext.registerTool({name:"checkout",description:"Completes the order with whatever is in the cart and empties it",
+inputSchema:{type:"object",properties:{}},
+execute(){if(cart.length===0)return{content:[{type:"text",text:"Cart is empty -- nothing to check out."}]};
+const t=cart.reduce((s,c)=>s+c.price*c.quantity,0);const id="ORD-"+Math.floor(Math.random()*100000);
+cart.length=0;renderCart();return{content:[{type:"text",text:`Order ${id} placed successfully. Total charged: Rs. ${t}`}]};}});
+</script></body></html>

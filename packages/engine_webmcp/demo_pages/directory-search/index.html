@@ -1,0 +1,20 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8"/><title>WebMCP Demo — Business Directory</title>
+<style>body{font-family:system-ui,sans-serif;max-width:32rem;margin:3rem auto}.biz{padding:.4rem 0;border-bottom:1px solid #ddd}</style></head>
+<body>
+<h1>WebMCP Demo — Business Directory</h1>
+<p>Tool: <code>search-directory</code> — two-filter search (text + category).</p>
+<div id="results"></div>
+<script src="/webmcp-polyfill.js"></script>
+<script>
+const DIRECTORY=[{name:"Blue Bottle Cafe",category:"cafe",area:"Downtown"},{name:"Green Leaf Yoga",category:"fitness",area:"Uptown"},
+{name:"Quick Fix Auto",category:"automotive",area:"Downtown"},{name:"Sunrise Bakery",category:"cafe",area:"Uptown"},
+{name:"Peak Performance Gym",category:"fitness",area:"Downtown"}];
+function render(items){document.getElementById("results").innerHTML=items.map(b=>`<div class="biz">${b.name} — ${b.category}, ${b.area}</div>`).join("");}
+render(DIRECTORY);
+document.modelContext.registerTool({name:"search-directory",description:"Search the business directory by name text and/or category",
+inputSchema:{type:"object",properties:{query:{type:"string",description:"Optional text to match against business names"},category:{type:"string",description:"Optional category, e.g. cafe, fitness"}}},
+execute({query,category}){const q=(query||"").toLowerCase();
+const f=DIRECTORY.filter(b=>(!q||b.name.toLowerCase().includes(q))&&(!category||b.category===category));
+render(f);return{content:[{type:"text",text:JSON.stringify(f)}]};}});
+</script></body></html>

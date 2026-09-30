@@ -1,0 +1,17 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8"/><title>WebMCP Demo — Contact Form</title>
+<style>body{font-family:system-ui,sans-serif;max-width:32rem;margin:3rem auto}.msg{padding:.4rem 0;border-bottom:1px solid #ddd}</style></head>
+<body>
+<h1>WebMCP Demo — Contact Form</h1>
+<p>Tool: <code>submit-feedback</code> — simplest form-fill, three required fields.</p>
+<div id="submissions"></div>
+<script src="/webmcp-polyfill.js"></script>
+<script>
+const submissions=[];
+function render(){document.getElementById("submissions").innerHTML=submissions.map(s=>`<div class="msg">${s.name} (${s.email}): ${s.message}</div>`).join("")||"<em>no submissions yet</em>";}
+render();
+document.modelContext.registerTool({name:"submit-feedback",description:"Submit a contact/feedback form entry",
+inputSchema:{type:"object",properties:{name:{type:"string",description:"Sender's name"},email:{type:"string",description:"Sender's email"},message:{type:"string",description:"The feedback message"}},required:["name","email","message"]},
+execute({name,email,message}){submissions.push({name,email,message});render();
+return{content:[{type:"text",text:`Thanks ${name}, your feedback was received.`}]};}});
+</script></body></html>
