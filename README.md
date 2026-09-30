@@ -152,5 +152,5 @@ any website's own scripts. Everything else is Python.
 
 ## Tech stack
 
-Python 3.10+ · Playwright (async) · MCP Python SDK (FastMCP) · FastAPI ·
+Python 3.10+ · Playwright (async) · MCP Python SDK (FastMCP) · FastAPI · OmniRoute
 Google Gemini / OpenAI-compatible / Anthropic
