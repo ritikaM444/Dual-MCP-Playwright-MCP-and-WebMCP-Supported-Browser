@@ -6,7 +6,7 @@ The model never sees which engine is behind a tool call. It sees
 `navigate` (always available) plus whatever Controller.available_actions
 holds for the current page, and that list changes after every navigate.
 
-Now also carries Phase 5 instrumentation (run_logger) and an optional
+Also carries Phase 5 instrumentation (run_logger) and an optional
 on_step callback so the web UI can show each step live.
 
 Two things written from Google's docs without being runnable here:
@@ -88,14 +88,34 @@ def _result_to_content(r: NormalizedResult) -> list[dict[str, Any]]:
 
 
 def _usage(interaction: Any) -> tuple[int, int]:
-    """Best-effort token extraction -- field names vary by SDK version, and
-    missing usage must never break a run, so this degrades to (0, 0)."""
+    """Token counts for one interaction, as (input, output).
+
+    The Interactions API reports usage as usage.total_input_tokens /
+    total_output_tokens / total_tokens (ai.google.dev/gemini-api/docs/
+    interactions/tokens). Output is taken as total minus input so thinking
+    and tool-use tokens are counted too -- they are billed, so they belong
+    in a cost comparison.
+
+    Older generate_content-style field names are kept as a fallback, and
+    missing usage never breaks a run: it degrades to (0, 0).
+    """
     u = getattr(interaction, "usage", None) or getattr(interaction, "usage_metadata", None)
     if u is None:
         return 0, 0
-    prompt = getattr(u, "prompt_tokens", None) or getattr(u, "prompt_token_count", 0) or 0
-    completion = getattr(u, "completion_tokens", None) or getattr(u, "candidates_token_count", 0) or 0
-    return int(prompt), int(completion)
+
+    def first(*names: str) -> int:
+        for n in names:
+            v = getattr(u, n, None)
+            if isinstance(v, (int, float)) and v:
+                return int(v)
+        return 0
+
+    inp = first("total_input_tokens", "prompt_tokens", "prompt_token_count")
+    total = first("total_tokens", "total_token_count")
+    if total and total >= inp:
+        return inp, total - inp
+    out = first("total_output_tokens", "completion_tokens", "candidates_token_count")
+    return inp, out
 
 
 def _clean_tool_name(name: str) -> str:
@@ -123,7 +143,13 @@ class Agent:
                 "GEMINI_API_KEY is not set -- get a free key at aistudio.google.com/apikey, "
                 "copy .env.example to .env, and fill it in"
             )
-        self.client = genai.Client(api_key=api_key)
+        # Without a timeout, one stalled request makes the whole agent wait
+        # forever with no message (seen in a benchmark run, Nov 2026). 90 s is
+        # far above a normal reply (~2-10 s); a timeout raises, and the
+        # benchmark records it as a provider error, not an engine failure.
+        timeout_ms = int(float(os.environ.get("GEMINI_TIMEOUT_S", "90")) * 1000)
+        self.client = genai.Client(api_key=api_key,
+                                   http_options=genai.types.HttpOptions(timeout=timeout_ms))
         self.controller = Controller()
         self.on_step = on_step
         self._last_interaction_id: str | None = None
