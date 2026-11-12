@@ -1,22 +1,147 @@
 <!doctype html>
-<html lang="en"><head><meta charset="utf-8"/><title>WebMCP Demo — Table Booking</title>
-<style>body{font-family:system-ui,sans-serif;max-width:32rem;margin:3rem auto}.slot{padding:.3rem 0}</style></head>
-<body>
-<h1>WebMCP Demo — Table Booking</h1>
-<p>Tools: <code>check-availability</code>, <code>book-slot</code> — check-then-act, where the second call can legitimately fail.</p>
-<div id="slots"></div>
-<script src="/webmcp-polyfill.js"></script>
-<script>
-const ALL_TIMES=["10:00 AM","11:00 AM","2:00 PM","3:00 PM","4:00 PM"];
-const booked=new Set();
-document.getElementById("slots").innerHTML=ALL_TIMES.map(t=>`<div class="slot">${t}</div>`).join("");
-document.modelContext.registerTool({name:"check-availability",description:"Check which time slots are still open for a given date",
-inputSchema:{type:"object",properties:{date:{type:"string",description:"Date to check, e.g. 2026-10-01"}},required:["date"]},
-execute({date}){const open=ALL_TIMES.filter(t=>!booked.has(`${date}|${t}`));
-return{content:[{type:"text",text:JSON.stringify({date,availableTimes:open})}]};}});
-document.modelContext.registerTool({name:"book-slot",description:"Book a specific date/time slot under a name",
-inputSchema:{type:"object",properties:{date:{type:"string",description:"Date to book"},time:{type:"string",description:"One of the times from check-availability"},name:{type:"string",description:"Name the booking is under"}},required:["date","time","name"]},
-execute({date,time,name}){const k=`${date}|${time}`;
-if(booked.has(k))return{content:[{type:"text",text:`Sorry, ${time} on ${date} is already booked.`}]};
-booked.add(k);return{content:[{type:"text",text:`Booked ${time} on ${date} for ${name}.`}]};}});
-</script></body></html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Tiffin House — book a table</title>
+  <link rel="stylesheet" href="/_shared/street.css" />
+  <style>
+    .slots { display: grid; grid-template-columns: repeat(auto-fill, minmax(7.5rem, 1fr)); gap: 0.6rem; }
+    .slot { font: inherit; font-weight: 700; min-height: 3rem; border-radius: 8px; cursor: pointer;
+            border: 1.5px solid var(--line); background: var(--card); color: var(--ink); }
+    .slot[aria-pressed="true"] { border-color: var(--sign); box-shadow: inset 0 0 0 2px var(--sign); }
+    .slot:disabled { background: var(--well); color: var(--ink-soft); cursor: not-allowed; text-decoration: line-through; }
+  </style>
+</head>
+<body style="--sign:#7A4E2D; --sign-ink:#FFFFFF">
+  <header class="sign"><div class="sign__inner">
+    <a class="sign__street" href="/">Back to Agent Street</a>
+    <h1 class="sign__name">Tiffin House</h1>
+    <p class="sign__line">Home-style thalis. Twelve tables, so do book ahead.</p>
+  </div></header>
+  <div class="awning"></div>
+
+  <main class="shop split">
+    <section>
+      <h2>Pick a time</h2>
+      <div class="field" style="max-width:14rem">
+        <label for="date">Date</label>
+        <input id="date" type="date" />
+      </div>
+      <div class="slots" id="slots" role="group" aria-label="Time slots"></div>
+    </section>
+    <section>
+      <h2>Your booking</h2>
+      <div class="panel">
+        <div class="field">
+          <label for="name">Name for the booking</label>
+          <input id="name" autocomplete="name" />
+        </div>
+        <button class="btn" type="button" id="book" style="width:100%">Book table</button>
+        <div id="booking-notice"></div>
+      </div>
+    </section>
+  </main>
+
+  <footer class="foot">Fictional business. Part of Agent Street, the demo site for the MCP Browser Agent project.</footer>
+
+  <script src="/webmcp-polyfill.js"></script>
+  <script src="/_shared/ai-door.js"></script>
+  <script>
+    const ALL_TIMES = ["10:00 AM", "11:00 AM", "2:00 PM", "3:00 PM", "4:00 PM"];
+    const booked = new Set(); // "date|time"
+
+    const dateInput = document.getElementById("date");
+    const today = new Date();   // local date, not UTC -- toISOString() would be a day off before 5:30 AM IST
+    dateInput.value = [today.getFullYear(), String(today.getMonth() + 1).padStart(2, "0"),
+                       String(today.getDate()).padStart(2, "0")].join("-");
+    let chosen = null;
+
+    const isFree = (date, time) => !booked.has(`${date}|${time}`);
+    const openTimes = (date) => ALL_TIMES.filter((t) => isFree(date, t));
+
+    function bookSlot(date, time, name) {
+      const key = `${date}|${time}`;
+      if (booked.has(key)) return false;
+      booked.add(key);
+      return true;
+    }
+
+    function renderSlots(touchedTime) {
+      const date = dateInput.value;
+      document.getElementById("slots").innerHTML = ALL_TIMES.map((t) => {
+        const free = isFree(date, t);
+        const cls = t === touchedTime ? "slot ai-touched" : "slot";
+        return `<button type="button" class="${cls}" data-time="${t}" ${free ? "" : "disabled"}
+                  aria-pressed="${t === chosen}">${t}</button>`;
+      }).join("");
+    }
+
+    function notice(html, ok) {
+      document.getElementById("booking-notice").innerHTML =
+        html ? `<p class="notice ${ok ? "notice--ok" : ""}">${html}</p>` : "";
+    }
+
+    // Front door
+    dateInput.addEventListener("change", () => { chosen = null; notice(""); renderSlots(); });
+    document.getElementById("slots").addEventListener("click", (e) => {
+      const b = e.target.closest("[data-time]");
+      if (!b || b.disabled) return;
+      chosen = b.dataset.time;
+      renderSlots();
+    });
+    document.getElementById("book").addEventListener("click", () => {
+      const name = document.getElementById("name").value.trim();
+      if (!chosen) return notice("Pick a time first.");
+      if (!name) return notice("Add a name for the booking.");
+      const ok = bookSlot(dateInput.value, chosen, name);
+      notice(ok ? `Booked ${chosen} on ${dateInput.value} for ${name}.`
+                : `${chosen} on ${dateInput.value} has just been taken. Pick another time.`, ok);
+      chosen = null;
+      renderSlots();
+    });
+    renderSlots();
+
+    // AI door
+    document.modelContext.registerTool({
+      name: "check-availability",
+      description: "Check which time slots are still open for a given date",
+      inputSchema: {
+        type: "object",
+        properties: { date: { type: "string", description: "Date to check, e.g. 2026-10-01" } },
+        required: ["date"],
+      },
+      execute({ date }) {
+        dateInput.value = date;   // show the agent's date on screen
+        renderSlots();
+        return { content: [{ type: "text", text: JSON.stringify({ date, availableTimes: openTimes(date) }) }] };
+      },
+    });
+
+    document.modelContext.registerTool({
+      name: "book-slot",
+      description: "Book a specific date/time slot under a name",
+      inputSchema: {
+        type: "object",
+        properties: {
+          date: { type: "string", description: "Date to book" },
+          time: { type: "string", description: "One of the times from check-availability" },
+          name: { type: "string", description: "Name the booking is under" },
+        },
+        required: ["date", "time", "name"],
+      },
+      execute({ date, time, name }) {
+        dateInput.value = date;
+        if (!bookSlot(date, time, name)) {
+          renderSlots();
+          notice(`${time} on ${date} was already booked.`);
+          return { content: [{ type: "text", text: `Sorry, ${time} on ${date} is already booked.` }] };
+        }
+        renderSlots(time);
+        notice(`Booked ${time} on ${date} for ${name}.`, true);
+        return { content: [{ type: "text", text: `Booked ${time} on ${date} for ${name}.` }] };
+      },
+    });
+  </script>
+</body>
+</html>

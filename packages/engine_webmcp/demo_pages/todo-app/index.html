@@ -2,33 +2,71 @@
 <html lang="en">
 <head>
   <meta charset="utf-8" />
-  <title>WebMCP Demo — Todo List</title>
-  <style>
-    body { font-family: system-ui, sans-serif; max-width: 32rem; margin: 3rem auto; }
-    #todo-list { padding-left: 1.25rem; }
-  </style>
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Tickoff — shared to-do list</title>
+  <link rel="stylesheet" href="/_shared/street.css" />
 </head>
-<body>
-  <h1>WebMCP Demo — Todo List</h1>
-  <p>This page registers two WebMCP tools: <code>add-todo</code> and <code>list-todos</code>,
-     modeled directly on the <code>add-todo</code> example in the WebMCP explainer.</p>
-  <ul id="todo-list"></ul>
+<body style="--sign:#E8A317; --sign-ink:#2A1C00">
+  <header class="sign"><div class="sign__inner">
+    <a class="sign__street" href="/">Back to Agent Street</a>
+    <h1 class="sign__name">Tickoff</h1>
+    <p class="sign__line">A shared to-do list for the whole house.</p>
+  </div></header>
+  <div class="awning"></div>
 
-  <!-- Our polyfill, served by demo_pages/server.py -->
+  <main class="shop">
+    <div class="panel">
+      <form class="inline-form" id="add-form">
+        <div class="field">
+          <label for="todo-input">New task</label>
+          <input id="todo-input" name="task" autocomplete="off" placeholder="Buy milk" />
+        </div>
+        <button class="btn" type="submit" style="align-self:end">Add task</button>
+      </form>
+    </div>
+
+    <h2 style="margin-top:1.75rem">On the list</h2>
+    <ul class="rows panel" id="todo-list"></ul>
+  </main>
+
+  <footer class="foot">Fictional business. Part of Agent Street, the demo site for the MCP Browser Agent project.</footer>
+
   <script src="/webmcp-polyfill.js"></script>
+  <script src="/_shared/ai-door.js"></script>
   <script>
-    const todos = [];
+    const todos = [];   // plain strings -- list-todos returns exactly this array
 
-    function render() {
+    function render(touched) {
       const ul = document.getElementById("todo-list");
-      ul.innerHTML = "";
-      for (const item of todos) {
-        const li = document.createElement("li");
-        li.textContent = item;
-        ul.appendChild(li);
+      if (!todos.length) {
+        ul.innerHTML = '<li><p class="empty">Nothing on the list yet. Add the first task above.</p></li>';
+        return;
       }
+      ul.innerHTML = "";
+      todos.forEach((item, i) => {
+        const li = document.createElement("li");
+        li.innerHTML = `<span class="name"></span>`;
+        li.querySelector(".name").textContent = item;
+        if (i === touched) li.classList.add("ai-touched");
+        ul.appendChild(li);
+      });
     }
 
+    function addTodo(text) { todos.push(text); }
+
+    // Front door: the form a person (or Engine 2) uses.
+    document.getElementById("add-form").addEventListener("submit", (e) => {
+      e.preventDefault();
+      const input = document.getElementById("todo-input");
+      const text = input.value.trim();
+      if (!text) return;
+      addTodo(text);
+      input.value = "";
+      render();
+    });
+    render();
+
+    // AI door: the same function, published for agents.
     document.modelContext.registerTool({
       name: "add-todo",
       description: "Add a new item to the user's active todo list",
@@ -40,8 +78,8 @@
         required: ["text"],
       },
       async execute({ text }) {
-        todos.push(text);
-        render();
+        addTodo(text);
+        render(todos.length - 1);
         return { content: [{ type: "text", text: `Added todo item: "${text}" successfully.` }] };
       },
     });

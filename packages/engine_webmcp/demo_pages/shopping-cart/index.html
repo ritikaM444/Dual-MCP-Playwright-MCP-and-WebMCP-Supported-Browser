@@ -1,31 +1,152 @@
 <!doctype html>
-<html lang="en"><head><meta charset="utf-8"/><title>WebMCP Demo — Shopping Cart</title>
-<style>body{font-family:system-ui,sans-serif;max-width:32rem;margin:3rem auto}.item{padding:.4rem 0;border-bottom:1px solid #ddd}#total{font-weight:bold;margin-top:.5rem}</style></head>
-<body>
-<h1>WebMCP Demo — Shopping Cart</h1>
-<p>Tools: <code>add-to-cart</code>, <code>view-cart</code>, <code>checkout</code> — a multi-step stateful flow.</p>
-<div id="catalog"></div><h3>Cart</h3><div id="cart"></div><div id="total"></div>
-<script src="/webmcp-polyfill.js"></script>
-<script>
-const CATALOG=[{id:1,name:"Running Shoes",price:2499},{id:2,name:"Yoga Mat",price:999},{id:3,name:"Water Bottle",price:499}];
-const cart=[];
-function renderCatalog(){document.getElementById("catalog").innerHTML=CATALOG.map(p=>`<div class="item">#${p.id} ${p.name} — Rs. ${p.price}</div>`).join("");}
-function renderCart(){document.getElementById("cart").innerHTML=cart.map(c=>`<div class="item">${c.name} x${c.quantity} — Rs. ${c.price*c.quantity}</div>`).join("")||"<em>empty</em>";
-document.getElementById("total").textContent=`Total: Rs. ${cart.reduce((s,c)=>s+c.price*c.quantity,0)}`;}
-renderCatalog();renderCart();
-document.modelContext.registerTool({name:"add-to-cart",description:"Add a product to the shopping cart by its catalog id",
-inputSchema:{type:"object",properties:{productId:{type:"number",description:"The product's catalog id"},quantity:{type:"number",description:"How many to add (default 1)"}},required:["productId"]},
-execute({productId,quantity}){const p=CATALOG.find(x=>x.id===productId);
-if(!p)return{content:[{type:"text",text:`No product with id ${productId}`}]};
-const q=quantity||1;const e=cart.find(c=>c.id===productId);
-if(e)e.quantity+=q;else cart.push({id:p.id,name:p.name,price:p.price,quantity:q});
-renderCart();return{content:[{type:"text",text:JSON.stringify(cart)}]};}});
-document.modelContext.registerTool({name:"view-cart",description:"Returns the current cart contents and total",
-inputSchema:{type:"object",properties:{}},
-execute(){return{content:[{type:"text",text:JSON.stringify({items:cart,total:cart.reduce((s,c)=>s+c.price*c.quantity,0)})}]};}});
-document.modelContext.registerTool({name:"checkout",description:"Completes the order with whatever is in the cart and empties it",
-inputSchema:{type:"object",properties:{}},
-execute(){if(cart.length===0)return{content:[{type:"text",text:"Cart is empty -- nothing to check out."}]};
-const t=cart.reduce((s,c)=>s+c.price*c.quantity,0);const id="ORD-"+Math.floor(Math.random()*100000);
-cart.length=0;renderCart();return{content:[{type:"text",text:`Order ${id} placed successfully. Total charged: Rs. ${t}`}]};}});
-</script></body></html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Dhaav Sports — running gear</title>
+  <link rel="stylesheet" href="/_shared/street.css" />
+</head>
+<body style="--sign:#6E2C66; --sign-ink:#FFFFFF">
+  <header class="sign"><div class="sign__inner">
+    <a class="sign__street" href="/">Back to Agent Street</a>
+    <h1 class="sign__name">Dhaav Sports</h1>
+    <p class="sign__line">Gear for your morning run, delivered across Pune.</p>
+  </div></header>
+  <div class="awning"></div>
+
+  <main class="shop split">
+    <section>
+      <h2>On the shelf</h2>
+      <ul class="rows panel" id="catalog"></ul>
+    </section>
+    <section>
+      <h2>Your cart</h2>
+      <div class="panel">
+        <ul class="rows" id="cart"></ul>
+        <p class="price" id="total" style="font-size:1.25rem;margin:0.9rem 0"></p>
+        <button class="btn" type="button" id="checkout" style="width:100%">Place order</button>
+        <div id="order-notice"></div>
+      </div>
+    </section>
+  </main>
+
+  <footer class="foot">Fictional business. Part of Agent Street, the demo site for the MCP Browser Agent project.</footer>
+
+  <script src="/webmcp-polyfill.js"></script>
+  <script src="/_shared/ai-door.js"></script>
+  <script>
+    const CATALOG = [
+      { id: 1, name: "Running Shoes", price: 2499 },
+      { id: 2, name: "Yoga Mat", price: 999 },
+      { id: 3, name: "Water Bottle", price: 499 },
+    ];
+    const cart = []; // { id, name, price, quantity }
+
+    const cartTotal = () => cart.reduce((s, c) => s + c.price * c.quantity, 0);
+
+    function addToCart(productId, qty) {
+      const product = CATALOG.find((p) => p.id === productId);
+      if (!product) return null;
+      const existing = cart.find((c) => c.id === productId);
+      if (existing) existing.quantity += qty;
+      else cart.push({ id: product.id, name: product.name, price: product.price, quantity: qty });
+      return product;
+    }
+
+    function placeOrder() {
+      if (cart.length === 0) return null;
+      const total = cartTotal();
+      const orderId = "ORD-" + Math.floor(Math.random() * 100000);
+      cart.length = 0;
+      return { orderId, total };
+    }
+
+    function renderCatalog() {
+      document.getElementById("catalog").innerHTML = CATALOG.map((p) =>
+        `<li><span><span class="name">${p.name}</span></span>
+           <span style="display:flex;align-items:center;gap:0.9rem">
+             <span class="price">Rs. ${p.price}</span>
+             <button class="btn" type="button" data-add="${p.id}">Add to cart</button>
+           </span></li>`).join("");
+    }
+
+    function renderCart(touchedId) {
+      const ul = document.getElementById("cart");
+      ul.innerHTML = cart.length
+        ? cart.map((c) => `<li class="${c.id === touchedId ? "ai-touched" : ""}">
+            <span><span class="name">${c.name}</span> <span class="meta">x${c.quantity}</span></span>
+            <span class="price">Rs. ${c.price * c.quantity}</span></li>`).join("")
+        : '<li><p class="empty">Your cart is empty. Add something from the shelf.</p></li>';
+      document.getElementById("total").textContent = `Total: Rs. ${cartTotal()}`;
+      document.getElementById("checkout").disabled = cart.length === 0;
+    }
+
+    function showOrder(o, fromAgent) {
+      document.getElementById("order-notice").innerHTML = o
+        ? `<p class="notice notice--ok ${fromAgent ? "ai-touched" : ""}">Order ${o.orderId} placed. Rs. ${o.total} charged.</p>`
+        : "";
+    }
+
+    // Front door
+    document.getElementById("catalog").addEventListener("click", (e) => {
+      const b = e.target.closest("[data-add]");
+      if (!b) return;
+      addToCart(Number(b.dataset.add), 1);
+      showOrder(null);
+      renderCart();
+    });
+    document.getElementById("checkout").addEventListener("click", () => {
+      const o = placeOrder();
+      renderCart();
+      showOrder(o);
+    });
+    renderCatalog();
+    renderCart();
+
+    // AI door
+    document.modelContext.registerTool({
+      name: "add-to-cart",
+      description: "Add a product to the shopping cart by its catalog id",
+      inputSchema: {
+        type: "object",
+        properties: {
+          productId: { type: "number", description: "The product's catalog id" },
+          quantity: { type: "number", description: "How many to add (default 1)" },
+        },
+        required: ["productId"],
+      },
+      execute({ productId, quantity }) {
+        const product = addToCart(productId, quantity || 1);
+        if (!product) {
+          return { content: [{ type: "text", text: `No product with id ${productId}` }] };
+        }
+        showOrder(null);
+        renderCart(productId);
+        return { content: [{ type: "text", text: JSON.stringify(cart) }] };
+      },
+    });
+
+    document.modelContext.registerTool({
+      name: "view-cart",
+      description: "Returns the current cart contents and total",
+      inputSchema: { type: "object", properties: {} },
+      execute() {
+        return { content: [{ type: "text", text: JSON.stringify({ items: cart, total: cartTotal() }) }] };
+      },
+    });
+
+    document.modelContext.registerTool({
+      name: "checkout",
+      description: "Completes the order with whatever is in the cart and empties it",
+      inputSchema: { type: "object", properties: {} },
+      execute() {
+        const o = placeOrder();
+        if (!o) return { content: [{ type: "text", text: "Cart is empty -- nothing to check out." }] };
+        renderCart();
+        showOrder(o, true);
+        return { content: [{ type: "text", text: `Order ${o.orderId} placed successfully. Total charged: Rs. ${o.total}` }] };
+      },
+    });
+  </script>
+</body>
+</html>

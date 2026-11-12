@@ -1,0 +1,283 @@
+/*
+  Agent Street -- shared styles for the WebMCP demo shops.
+
+  Colour has two reserved meanings across the whole project, matching the
+  web UI's step badges:
+    green  = the AI door  (WebMCP, Engine 1)
+    blue   = the front door (clicking and typing, Engine 2 -- or a person)
+  Shop sign colours are deliberately warm so they never collide with those.
+
+  Each page sets its own sign colour on <body>:
+    <body style="--sign:#6E2C66; --sign-ink:#fff">
+*/
+
+@font-face {
+  font-family: "Archivo";
+  src: url("/_shared/fonts/archivo.woff2") format("woff2-variations");
+  font-weight: 100 900;
+  font-stretch: 62% 125%;
+  font-display: swap;
+}
+@font-face {
+  font-family: "Atkinson Hyperlegible";
+  src: url("/_shared/fonts/atkinson-400.woff2") format("woff2");
+  font-weight: 400;
+  font-display: swap;
+}
+@font-face {
+  font-family: "Atkinson Hyperlegible";
+  src: url("/_shared/fonts/atkinson-700.woff2") format("woff2");
+  font-weight: 700;
+  font-display: swap;
+}
+
+:root {
+  --paper: #EEF2F3;
+  --card: #FFFFFF;
+  --ink: #16233A;
+  --ink-soft: #4B5A6E;
+  --line: #CBD4DA;
+  --well: #E2E8EB;
+
+  --ai: #15803D;        /* AI door -- WebMCP, Engine 1 */
+  --ai-tint: #DCF3E3;
+  --hand: #1D4ED8;      /* front door -- clicks and typing, Engine 2 */
+  --hand-tint: #DCE6FB;
+
+  --sign: #16233A;
+  --sign-ink: #FFFFFF;
+
+  --display: "Archivo", "Arial Narrow", system-ui, sans-serif;
+  --body: "Atkinson Hyperlegible", system-ui, -apple-system, "Segoe UI", sans-serif;
+  --radius: 10px;
+}
+
+*, *::before, *::after { box-sizing: border-box; }
+
+html { -webkit-text-size-adjust: 100%; }
+
+body {
+  margin: 0;
+  background: var(--paper);
+  color: var(--ink);
+  font-family: var(--body);
+  font-size: 1.0625rem;
+  line-height: 1.5;
+}
+
+a { color: inherit; }
+
+/* ---------- The signboard (the one bold element) ---------- */
+
+.sign {
+  background: var(--sign);
+  color: var(--sign-ink);
+}
+
+.sign__inner {
+  max-width: 62rem;
+  margin: 0 auto;
+  padding: 1.25rem 1.25rem 1.75rem;
+}
+
+.sign__street {
+  display: inline-block;
+  font-size: 0.9375rem;
+  text-decoration: none;
+  opacity: 0.85;
+  padding: 0.25rem 0;
+}
+.sign__street:hover { opacity: 1; text-decoration: underline; }
+
+.sign__name {
+  font-family: var(--display);
+  font-stretch: 125%;
+  font-weight: 800;
+  font-size: clamp(2.4rem, 7.5vw, 4.75rem);
+  line-height: 0.95;
+  letter-spacing: -0.015em;
+  margin: 0.5rem 0 0.5rem;
+}
+
+.sign__line {
+  margin: 0;
+  font-size: 1.125rem;
+  max-width: 52ch;
+}
+
+/* Scalloped awning edge hanging under the sign. */
+.awning {
+  height: 18px;
+  background:
+    radial-gradient(circle at 50% 0, var(--sign) 13px, transparent 13.5px)
+    0 0 / 30px 18px repeat-x;
+}
+
+/* ---------- Page body ---------- */
+
+.shop {
+  max-width: 62rem;
+  margin: 0 auto;
+  padding: 1.5rem 1.25rem 3rem;
+}
+
+.split {
+  display: grid;
+  grid-template-columns: minmax(0, 1.55fr) minmax(0, 1fr);
+  gap: 2rem;
+  align-items: start;
+}
+@media (max-width: 760px) {
+  .split { grid-template-columns: 1fr; gap: 1.5rem; }
+}
+
+h2 {
+  font-family: var(--display);
+  font-stretch: 100%;
+  font-weight: 700;
+  font-size: 1.375rem;
+  line-height: 1.2;
+  margin: 0 0 0.75rem;
+}
+
+.lede {
+  color: var(--ink-soft);
+  margin: 0 0 1.25rem;
+  max-width: 60ch;
+}
+
+.panel {
+  background: var(--card);
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  padding: 1.25rem;
+}
+
+.hint { color: var(--ink-soft); font-size: 0.9375rem; margin: 0.5rem 0 0; }
+
+/* Rows: the default way lists are shown -- a shelf, not a card grid. */
+.rows { list-style: none; margin: 0; padding: 0; }
+.rows > li {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  padding: 0.8rem 0;
+  border-bottom: 1px solid var(--line);
+}
+.rows > li:last-child { border-bottom: 0; }
+.rows.panel { padding: 0.25rem 1.25rem; }
+.rows .name { font-weight: 700; }
+.rows .meta { color: var(--ink-soft); font-size: 0.9375rem; }
+
+.price {
+  font-family: var(--display);
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+
+.tag {
+  display: inline-block;
+  background: var(--well);
+  border-radius: 999px;
+  padding: 0.05rem 0.6rem;
+  font-size: 0.875rem;
+  color: var(--ink-soft);
+}
+
+.empty { color: var(--ink-soft); padding: 0.75rem 0; margin: 0; }
+
+/* ---------- Controls ---------- */
+
+.btn {
+  font: inherit;
+  font-weight: 700;
+  min-height: 2.75rem;
+  padding: 0.55rem 1.1rem;
+  border-radius: 8px;
+  border: 0;
+  background: var(--sign);
+  color: var(--sign-ink);
+  cursor: pointer;
+}
+.btn:hover { filter: brightness(1.08); }
+.btn:disabled { background: var(--well); color: var(--ink-soft); cursor: not-allowed; filter: none; }
+
+.btn--quiet {
+  background: transparent;
+  color: var(--ink);
+  border: 1.5px solid var(--line);
+}
+.btn--quiet:hover { border-color: var(--ink-soft); filter: none; }
+
+.chips { display: flex; flex-wrap: wrap; gap: 0.5rem; margin: 0 0 1rem; }
+.chip {
+  font: inherit;
+  font-size: 0.9375rem;
+  border: 1.5px solid var(--line);
+  background: var(--card);
+  color: var(--ink);
+  border-radius: 999px;
+  padding: 0.35rem 0.9rem;
+  cursor: pointer;
+}
+.chip[aria-pressed="true"] { background: var(--ink); border-color: var(--ink); color: #fff; }
+
+.field { display: grid; gap: 0.35rem; margin: 0 0 0.9rem; }
+.field label { font-weight: 700; font-size: 0.9375rem; }
+.field input, .field textarea, .field select {
+  font: inherit;
+  width: 100%;
+  padding: 0.6rem 0.75rem;
+  border: 1.5px solid var(--line);
+  border-radius: 8px;
+  background: var(--card);
+  color: var(--ink);
+}
+.field textarea { min-height: 6rem; resize: vertical; }
+
+.inline-form { display: flex; gap: 0.6rem; }
+.inline-form .field { flex: 1; margin: 0; }
+
+/* Focus is blue on purpose: blue is the front-door colour, and a focused
+   field is the front door being used -- by a person or by Engine 2. */
+:focus-visible { outline: 3px solid var(--hand); outline-offset: 2px; }
+.field input:focus, .field textarea:focus, .field select:focus {
+  outline: none;
+  border-color: var(--hand);
+  box-shadow: 0 0 0 3px var(--hand-tint);
+}
+
+/* Rows the AI door returned -- stays until the next search. */
+.ai-found { background: var(--ai-tint); box-shadow: inset 4px 0 0 var(--ai); }
+
+/* A row or tile the AI door just touched -- set by page scripts. */
+.ai-touched { animation: ai-flash 1.6s ease-out; }
+@keyframes ai-flash {
+  0%   { background-color: var(--ai-tint); box-shadow: inset 4px 0 0 var(--ai); }
+  100% { background-color: transparent; box-shadow: inset 4px 0 0 transparent; }
+}
+
+.notice {
+  border-radius: 8px;
+  padding: 0.75rem 1rem;
+  background: var(--well);
+  margin: 0.75rem 0 0;
+}
+.notice--ok { background: var(--ai-tint); }
+
+/* ---------- Footer ---------- */
+
+.foot {
+  max-width: 62rem;
+  margin: 0 auto;
+  padding: 1.5rem 1.25rem 2.5rem;
+  color: var(--ink-soft);
+  font-size: 0.875rem;
+  border-top: 1px solid var(--line);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .ai-touched { animation: none; background-color: var(--ai-tint); }
+}

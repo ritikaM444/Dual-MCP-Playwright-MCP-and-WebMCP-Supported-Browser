@@ -1,0 +1,129 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>The Godown — 300 products</title>
+  <link rel="stylesheet" href="/_shared/street.css" />
+  <style>
+    .jump { display: flex; flex-wrap: wrap; gap: 0.5rem; margin: 0 0 1.5rem; }
+    .jump a { text-decoration: none; }
+    section.cat { margin: 0 0 1.75rem; scroll-margin-top: 1rem; }
+    section.cat h2 { text-transform: capitalize; }
+    .grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(15rem, 1fr));
+            gap: 0 1.25rem; background: var(--card); border: 1px solid var(--line);
+            border-radius: var(--radius); padding: 0.4rem 1rem; }
+    .p { padding: 0.45rem 0; border-bottom: 1px solid var(--well); font-size: 0.9375rem;
+         font-variant-numeric: tabular-nums; }
+    main.shop { padding-bottom: 45vh; }   /* lets the last rows scroll to the middle, clear of the toast */
+  </style>
+</head>
+<body style="--sign:#2B2D33; --sign-ink:#F4C24D">
+  <header class="sign"><div class="sign__inner">
+    <a class="sign__street" href="/">Back to Agent Street</a>
+    <h1 class="sign__name">The Godown</h1>
+    <p class="sign__line">Three hundred products under one roof.</p>
+  </div></header>
+  <div class="awning"></div>
+
+  <main class="shop">
+    <nav class="jump chips" aria-label="Jump to a category" id="jump"></nav>
+    <div id="catalog"></div>
+  </main>
+
+  <footer class="foot">Fictional business. Part of Agent Street, the demo site for the MCP Browser Agent project.</footer>
+
+  <script src="/webmcp-polyfill.js"></script>
+  <script src="/_shared/ai-door.js"></script>
+  <script>
+    // Deterministic generator -- no randomness, so the benchmark's expected
+    // answers are fixed. Categories are in alphabetical order (a neutral
+    // choice: nothing is placed late on purpose).
+    //
+    // BENCHMARK NOTE: each product row's visible text must stay exactly
+    // "<name> - Rs. <price>". The big-toys-priciest truncation probe depends
+    // on where the answer falls in the page text; changing row text changes
+    // that. Verify with a real browser before editing this page.
+    const CATS = ["books", "electronics", "garden", "home", "sports", "toys"];
+    const ADJ = ["Classic", "Deluxe", "Compact", "Rustic", "Modern", "Smart",
+                 "Eco", "Premium", "Travel", "Pro", "Basic", "Vintage"];
+    const NOUNS = {
+      books: ["Novel", "Atlas", "Cookbook", "Journal", "Anthology"],
+      electronics: ["Speaker", "Charger", "Headset", "Router", "Webcam"],
+      garden: ["Rake", "Planter", "Hose", "Shears", "Trowel"],
+      home: ["Lamp", "Rug", "Kettle", "Mirror", "Clock"],
+      sports: ["Racket", "Helmet", "Dumbbell", "Jersey", "Ball"],
+      toys: ["Puzzle", "Robot", "Kite", "Blocks", "Doll"],
+    };
+    const CATALOG = [];
+    for (let i = 0; i < 300; i++) {
+      const category = CATS[Math.floor(i / 50)];
+      const noun = NOUNS[category][i % 5];
+      CATALOG.push({
+        id: 1000 + i,
+        name: `${ADJ[(i * 7) % 12]} ${noun} ${1000 + i}`,
+        category,
+        price: 199 + ((i * 7919) % 9800),
+      });
+    }
+
+    document.getElementById("jump").innerHTML = CATS.map((c) =>
+      `<a class="chip" href="#cat-${c}" style="text-transform:capitalize">${c}</a>`).join("");
+
+    document.getElementById("catalog").innerHTML = CATS.map((c) =>
+      `<section class="cat" id="cat-${c}"><h2>${c}</h2><div class="grid">` +
+      CATALOG.filter((p) => p.category === c)
+        .map((p) => `<div class="p" data-id="${p.id}">${p.name} - Rs. ${p.price}</div>`).join("") +
+      `</div></section>`).join("");
+
+    // Show people which rows the AI door returned, without changing any text.
+    function highlight(rows) {
+      const names = new Set(rows.map((r) => r.name));
+      const hits = [];
+      document.querySelectorAll(".p").forEach((el) => {
+        const p = CATALOG.find((x) => String(x.id) === el.dataset.id);
+        el.classList.remove("ai-found");
+        if (p && names.has(p.name)) { el.classList.add("ai-found"); hits.push({ el, name: p.name }); }
+      });
+      const top = hits.find((h) => rows[0] && h.name === rows[0].name) || hits[0];   // the agent's first answer
+      if (top) top.el.scrollIntoView({ block: "center", behavior: "smooth" });
+    }
+
+    document.modelContext.registerTool({
+      name: "list-categories",
+      description: "List the product categories in the catalogue",
+      inputSchema: { type: "object", properties: {} },
+      execute() {
+        return { content: [{ type: "text", text: JSON.stringify(CATS) }] };
+      },
+    });
+
+    document.modelContext.registerTool({
+      name: "search-catalog",
+      description: "Search the catalogue. Filter by category and/or max price, sort by price or name, and limit the number of results.",
+      inputSchema: {
+        type: "object",
+        properties: {
+          category: { type: "string", description: "Optional category, e.g. garden" },
+          maxPrice: { type: "number", description: "Optional maximum price in rupees" },
+          sortBy: { type: "string", enum: ["price", "name"], description: "Sort field (default price)" },
+          order: { type: "string", enum: ["asc", "desc"], description: "Sort order (default asc)" },
+          limit: { type: "number", description: "Max results to return (default 10)" },
+        },
+      },
+      execute({ category, maxPrice, sortBy, order, limit }) {
+        const key = sortBy === "name" ? "name" : "price";
+        const dir = order === "desc" ? -1 : 1;
+        const rows = CATALOG
+          .filter((p) => (!category || p.category === category) &&
+                         (maxPrice == null || p.price <= maxPrice))
+          .sort((a, b) => (a[key] > b[key] ? 1 : a[key] < b[key] ? -1 : 0) * dir)
+          .slice(0, limit || 10)
+          .map(({ name, price }) => ({ name, price }));
+        highlight(rows);
+        return { content: [{ type: "text", text: JSON.stringify(rows) }] };
+      },
+    });
+  </script>
+</body>
+</html>

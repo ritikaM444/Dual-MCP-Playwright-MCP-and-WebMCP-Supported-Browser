@@ -1,20 +1,110 @@
 <!doctype html>
-<html lang="en"><head><meta charset="utf-8"/><title>WebMCP Demo — Event Calendar</title>
-<style>body{font-family:system-ui,sans-serif;max-width:32rem;margin:3rem auto}.event{padding:.4rem 0;border-bottom:1px solid #ddd}</style></head>
-<body>
-<h1>WebMCP Demo — Event Calendar</h1>
-<p>Tools: <code>create-event</code>, <code>list-events</code> — create-then-list with structured multi-field data.</p>
-<div id="events"></div>
-<script src="/webmcp-polyfill.js"></script>
-<script>
-const events=[];
-function render(){document.getElementById("events").innerHTML=events.map(e=>`<div class="event">${e.date} ${e.time} -- ${e.title}</div>`).join("")||"<em>no events yet</em>";}
-render();
-document.modelContext.registerTool({name:"create-event",description:"Create a new calendar event",
-inputSchema:{type:"object",properties:{title:{type:"string",description:"Event title"},date:{type:"string",description:"Date, e.g. 2026-10-01"},time:{type:"string",description:"Time, e.g. 10:00 AM"}},required:["title","date","time"]},
-execute({title,date,time}){events.push({title,date,time});render();
-return{content:[{type:"text",text:`Created event "${title}" on ${date} at ${time}.`}]};}});
-document.modelContext.registerTool({name:"list-events",description:"List all created events",
-inputSchema:{type:"object",properties:{}},
-execute(){return{content:[{type:"text",text:JSON.stringify(events)}]};}});
-</script></body></html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Diary — your events</title>
+  <link rel="stylesheet" href="/_shared/street.css" />
+  <style>
+    .when { font-family: var(--display); font-weight: 700; font-variant-numeric: tabular-nums;
+            min-width: 8.5rem; white-space: nowrap; }
+    .event { justify-content: flex-start !important; }
+    .two { display: grid; grid-template-columns: 1fr 1fr; gap: 0.75rem; }
+  </style>
+</head>
+<body style="--sign:#CDB891; --sign-ink:#2A2414">
+  <header class="sign"><div class="sign__inner">
+    <a class="sign__street" href="/">Back to Agent Street</a>
+    <h1 class="sign__name">Diary</h1>
+    <p class="sign__line">Plans, meetings and reminders in one place.</p>
+  </div></header>
+  <div class="awning"></div>
+
+  <main class="shop split">
+    <section>
+      <h2>Coming up</h2>
+      <ul class="rows panel" id="events"></ul>
+    </section>
+    <section>
+      <h2>Add an event</h2>
+      <form class="panel" id="form">
+        <div class="field"><label for="title">What</label><input id="title" required placeholder="Team sync" /></div>
+        <div class="two">
+          <div class="field"><label for="date">Date</label><input id="date" type="date" required /></div>
+          <div class="field"><label for="time">Time</label><input id="time" placeholder="10:00 AM" required /></div>
+        </div>
+        <button class="btn" type="submit">Add event</button>
+      </form>
+    </section>
+  </main>
+
+  <footer class="foot">Fictional business. Part of Agent Street, the demo site for the MCP Browser Agent project.</footer>
+
+  <script src="/webmcp-polyfill.js"></script>
+  <script src="/_shared/ai-door.js"></script>
+  <script>
+    const events = []; // { title, date, time } -- list-events returns this, in the order added
+
+    function createEvent(title, date, time) { events.push({ title, date, time }); }
+
+    function render(touched) {
+      const ul = document.getElementById("events");
+      if (!events.length) {
+        ul.innerHTML = '<li><p class="empty">Nothing planned yet. Add an event to get started.</p></li>';
+        return;
+      }
+      // People see events by date; the tool still returns them in the order added.
+      const shown = events.map((e, i) => ({ ...e, i })).sort((a, b) => (a.date + a.time).localeCompare(b.date + b.time));
+      ul.innerHTML = "";
+      shown.forEach((e) => {
+        const li = document.createElement("li");
+        li.className = "event" + (e.i === touched ? " ai-touched" : "");
+        li.innerHTML = `<span class="when"></span><span class="name"></span>`;
+        li.querySelector(".when").textContent = `${e.date} ${e.time}`;
+        li.querySelector(".name").textContent = e.title;
+        ul.appendChild(li);
+      });
+    }
+
+    // Front door
+    document.getElementById("form").addEventListener("submit", (ev) => {
+      ev.preventDefault();
+      createEvent(document.getElementById("title").value.trim(),
+                  document.getElementById("date").value,
+                  document.getElementById("time").value.trim());
+      ev.target.reset();
+      render();
+    });
+    render();
+
+    // AI door
+    document.modelContext.registerTool({
+      name: "create-event",
+      description: "Create a new calendar event",
+      inputSchema: {
+        type: "object",
+        properties: {
+          title: { type: "string", description: "Event title" },
+          date: { type: "string", description: "Date, e.g. 2026-10-01" },
+          time: { type: "string", description: "Time, e.g. 10:00 AM" },
+        },
+        required: ["title", "date", "time"],
+      },
+      execute({ title, date, time }) {
+        createEvent(title, date, time);
+        render(events.length - 1);
+        return { content: [{ type: "text", text: `Created event "${title}" on ${date} at ${time}.` }] };
+      },
+    });
+
+    document.modelContext.registerTool({
+      name: "list-events",
+      description: "List all created events",
+      inputSchema: { type: "object", properties: {} },
+      execute() {
+        return { content: [{ type: "text", text: JSON.stringify(events) }] };
+      },
+    });
+  </script>
+</body>
+</html>

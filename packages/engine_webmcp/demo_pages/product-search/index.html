@@ -2,19 +2,37 @@
 <html lang="en">
 <head>
   <meta charset="utf-8" />
-  <title>WebMCP Demo — Product Search</title>
-  <style>
-    body { font-family: system-ui, sans-serif; max-width: 32rem; margin: 3rem auto; }
-    .product { padding: 0.4rem 0; border-bottom: 1px solid #ddd; }
-  </style>
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Kirana Corner — find a product</title>
+  <link rel="stylesheet" href="/_shared/street.css" />
 </head>
-<body>
-  <h1>WebMCP Demo — Product Search</h1>
-  <p>This page registers a <code>search-products</code> tool, modeled on the
-     <code>get-dresses</code> / e-commerce example in the WebMCP explainer.</p>
-  <div id="results"></div>
+<body style="--sign:#C83A22; --sign-ink:#FFFFFF">
+  <header class="sign"><div class="sign__inner">
+    <a class="sign__street" href="/">Back to Agent Street</a>
+    <h1 class="sign__name">Kirana Corner</h1>
+    <p class="sign__line">The neighbourhood store, with a bit of everything.</p>
+  </div></header>
+  <div class="awning"></div>
+
+  <main class="shop">
+    <h2>Find a product</h2>
+    <div class="chips" role="group" aria-label="Category">
+      <button class="chip" type="button" data-cat="" aria-pressed="true">All</button>
+      <button class="chip" type="button" data-cat="electronics" aria-pressed="false">Electronics</button>
+      <button class="chip" type="button" data-cat="fitness" aria-pressed="false">Fitness</button>
+      <button class="chip" type="button" data-cat="home" aria-pressed="false">Home</button>
+    </div>
+    <div class="field" style="max-width:16rem">
+      <label for="max-price">Spend up to (Rs.)</label>
+      <input id="max-price" type="number" min="0" step="100" placeholder="Any price" />
+    </div>
+    <ul class="rows panel" id="results"></ul>
+  </main>
+
+  <footer class="foot">Fictional business. Part of Agent Street, the demo site for the MCP Browser Agent project.</footer>
 
   <script src="/webmcp-polyfill.js"></script>
+  <script src="/_shared/ai-door.js"></script>
   <script>
     const CATALOG = [
       { id: 1, name: "Wireless Mouse", category: "electronics", price: 799 },
@@ -24,14 +42,40 @@
       { id: 5, name: "Desk Lamp", category: "home", price: 1299 },
     ];
 
-    function renderResults(items) {
-      const div = document.getElementById("results");
-      div.innerHTML = items
-        .map((i) => `<div class="product">${i.name} — Rs. ${i.price} (${i.category})</div>`)
-        .join("");
+    function search(category, maxPrice) {
+      return CATALOG.filter(
+        (p) => (!category || p.category === category) && (maxPrice == null || p.price <= maxPrice)
+      );
     }
+
+    function renderResults(items, fromAgent) {
+      const ul = document.getElementById("results");
+      if (!items.length) {
+        ul.innerHTML = '<li><p class="empty">No products match. Try another category or a higher price.</p></li>';
+        return;
+      }
+      ul.innerHTML = items.map((p) =>
+        `<li class="${fromAgent ? "ai-touched" : ""}"><span><span class="name">${p.name}</span>
+           <span class="tag">${p.category}</span></span>
+           <span class="price">Rs. ${p.price}</span></li>`).join("");
+    }
+
+    // Front door
+    let cat = "";
+    const maxInput = document.getElementById("max-price");
+    function applyFilters() {
+      const v = maxInput.value === "" ? null : Number(maxInput.value);
+      renderResults(search(cat, v));
+    }
+    document.querySelectorAll(".chip").forEach((b) => b.addEventListener("click", () => {
+      cat = b.dataset.cat;
+      document.querySelectorAll(".chip").forEach((x) => x.setAttribute("aria-pressed", String(x === b)));
+      applyFilters();
+    }));
+    maxInput.addEventListener("input", applyFilters);
     renderResults(CATALOG);
 
+    // AI door
     document.modelContext.registerTool({
       name: "search-products",
       description: "Search the product catalog by category and/or maximum price",
@@ -43,10 +87,11 @@
         },
       },
       execute({ category, maxPrice }) {
-        const filtered = CATALOG.filter(
-          (p) => (!category || p.category === category) && (maxPrice == null || p.price <= maxPrice)
-        );
-        renderResults(filtered);
+        const filtered = search(category, maxPrice);
+        cat = category || "";
+        document.querySelectorAll(".chip").forEach((x) => x.setAttribute("aria-pressed", String(x.dataset.cat === cat)));
+        maxInput.value = maxPrice == null ? "" : String(maxPrice);
+        renderResults(filtered, true);
         return { content: [{ type: "text", text: JSON.stringify(filtered) }] };
       },
     });

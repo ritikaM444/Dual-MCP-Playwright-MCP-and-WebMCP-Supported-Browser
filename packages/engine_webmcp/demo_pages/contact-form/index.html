@@ -1,17 +1,101 @@
 <!doctype html>
-<html lang="en"><head><meta charset="utf-8"/><title>WebMCP Demo — Contact Form</title>
-<style>body{font-family:system-ui,sans-serif;max-width:32rem;margin:3rem auto}.msg{padding:.4rem 0;border-bottom:1px solid #ddd}</style></head>
-<body>
-<h1>WebMCP Demo — Contact Form</h1>
-<p>Tool: <code>submit-feedback</code> — simplest form-fill, three required fields.</p>
-<div id="submissions"></div>
-<script src="/webmcp-polyfill.js"></script>
-<script>
-const submissions=[];
-function render(){document.getElementById("submissions").innerHTML=submissions.map(s=>`<div class="msg">${s.name} (${s.email}): ${s.message}</div>`).join("")||"<em>no submissions yet</em>";}
-render();
-document.modelContext.registerTool({name:"submit-feedback",description:"Submit a contact/feedback form entry",
-inputSchema:{type:"object",properties:{name:{type:"string",description:"Sender's name"},email:{type:"string",description:"Sender's email"},message:{type:"string",description:"The feedback message"}},required:["name","email","message"]},
-execute({name,email,message}){submissions.push({name,email,message});render();
-return{content:[{type:"text",text:`Thanks ${name}, your feedback was received.`}]};}});
-</script></body></html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Help Counter — send us a message</title>
+  <link rel="stylesheet" href="/_shared/street.css" />
+</head>
+<body style="--sign:#7A1F2B; --sign-ink:#FFFFFF">
+  <header class="sign"><div class="sign__inner">
+    <a class="sign__street" href="/">Back to Agent Street</a>
+    <h1 class="sign__name">Help Counter</h1>
+    <p class="sign__line">Questions, complaints, compliments. A person reads every one.</p>
+  </div></header>
+  <div class="awning"></div>
+
+  <main class="shop split">
+    <section>
+      <h2>Send a message</h2>
+      <form class="panel" id="form">
+        <div class="field"><label for="name">Your name</label><input id="name" autocomplete="name" required /></div>
+        <div class="field"><label for="email">Email</label><input id="email" type="email" autocomplete="email" required /></div>
+        <div class="field"><label for="message">Message</label><textarea id="message" required></textarea></div>
+        <button class="btn" type="submit">Send message</button>
+        <div id="sent"></div>
+      </form>
+    </section>
+    <section>
+      <h2>Received today</h2>
+      <ul class="rows panel" id="inbox"></ul>
+    </section>
+  </main>
+
+  <footer class="foot">Fictional business. Part of Agent Street, the demo site for the MCP Browser Agent project.</footer>
+
+  <script src="/webmcp-polyfill.js"></script>
+  <script src="/_shared/ai-door.js"></script>
+  <script>
+    const submissions = [];
+
+    function submit(name, email, message) { submissions.push({ name, email, message }); }
+
+    function render(touchLast) {
+      const ul = document.getElementById("inbox");
+      if (!submissions.length) {
+        ul.innerHTML = '<li><p class="empty">No messages yet today.</p></li>';
+        return;
+      }
+      ul.innerHTML = "";
+      submissions.forEach((s, i) => {
+        const li = document.createElement("li");
+        if (touchLast && i === submissions.length - 1) li.classList.add("ai-touched");
+        li.innerHTML = `<span><span class="name"></span> <span class="meta"></span><br><span class="msg"></span></span>`;
+        li.querySelector(".name").textContent = s.name;
+        li.querySelector(".meta").textContent = s.email;
+        li.querySelector(".msg").textContent = s.message;
+        ul.appendChild(li);
+      });
+    }
+
+    function sent(name) {
+      document.getElementById("sent").innerHTML =
+        `<p class="notice notice--ok">Thanks ${name.replace(/</g, "&lt;")}, your message is with us.</p>`;
+    }
+
+    // Front door
+    document.getElementById("form").addEventListener("submit", (e) => {
+      e.preventDefault();
+      const name = document.getElementById("name").value.trim();
+      const email = document.getElementById("email").value.trim();
+      const message = document.getElementById("message").value.trim();
+      submit(name, email, message);
+      e.target.reset();
+      sent(name);
+      render();
+    });
+    render();
+
+    // AI door
+    document.modelContext.registerTool({
+      name: "submit-feedback",
+      description: "Submit a contact/feedback form entry",
+      inputSchema: {
+        type: "object",
+        properties: {
+          name: { type: "string", description: "Sender's name" },
+          email: { type: "string", description: "Sender's email" },
+          message: { type: "string", description: "The feedback message" },
+        },
+        required: ["name", "email", "message"],
+      },
+      execute({ name, email, message }) {
+        submit(name, email, message);
+        render(true);
+        sent(name);
+        return { content: [{ type: "text", text: `Thanks ${name}, your feedback was received.` }] };
+      },
+    });
+  </script>
+</body>
+</html>

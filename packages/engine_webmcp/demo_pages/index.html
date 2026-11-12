@@ -1,0 +1,95 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Agent Street</title>
+  <link rel="stylesheet" href="/_shared/street.css" />
+  <style>
+    .doors { display: grid; grid-template-columns: 1fr 1fr; gap: 1.25rem; margin: 0 0 1.25rem; }
+    @media (max-width: 720px) { .doors { grid-template-columns: 1fr; } }
+    .door { background: var(--card); border: 1px solid var(--line); border-radius: var(--radius);
+            padding: 1.2rem 1.3rem; border-top: 6px solid var(--c); }
+    .door h2 { color: var(--c); margin-bottom: 0.4rem; }
+    .door p { margin: 0 0 0.6rem; max-width: 52ch; }
+    .door .engine { color: var(--ink-soft); font-size: 0.9375rem; margin: 0; }
+    .switch { background: var(--card); border: 1px solid var(--line); border-radius: var(--radius);
+              padding: 1rem 1.3rem; margin: 0 0 2.5rem; }
+    .switch p { margin: 0; }
+
+    .street { display: grid; grid-template-columns: repeat(auto-fill, minmax(16.5rem, 1fr)); gap: 1.5rem 1.25rem; }
+    .front { display: flex; flex-direction: column; text-decoration: none; color: var(--ink);
+             background: var(--card); border: 1px solid var(--line); border-radius: 4px 4px var(--radius) var(--radius); }
+    .front:hover .front__name, .front:focus-visible .front__name { text-decoration: underline; }
+    .front__sign { background: var(--s); color: var(--si); padding: 0.9rem 1rem 0.8rem; border-radius: 3px 3px 0 0; }
+    .front__name { font-family: var(--display); font-stretch: 125%; font-weight: 800;
+                   font-size: 1.55rem; line-height: 1; letter-spacing: -0.01em; }
+    .front__awning { height: 12px;
+      background: radial-gradient(circle at 50% 0, var(--s) 8.5px, transparent 9px) 0 0 / 20px 12px repeat-x; }
+    .front__body { padding: 0.5rem 1rem 1rem; display: flex; flex-direction: column; gap: 0.75rem; flex: 1; }
+    .front__what { margin: 0; flex: 1; }
+    .front__door { display: flex; align-items: center; gap: 0.5rem; color: var(--ai); font-weight: 700; font-size: 0.9375rem; }
+    .front__door::before { content: ""; width: 0.65rem; height: 0.65rem; border-radius: 50%; background: var(--ai); }
+  </style>
+</head>
+<body style="--sign:#16233A; --sign-ink:#FFFFFF">
+  <header class="sign"><div class="sign__inner">
+    <h1 class="sign__name">Agent Street</h1>
+    <p class="sign__line">Nine shops. Each has a front door for people, and an AI door for agents.</p>
+  </div></header>
+  <div class="awning"></div>
+
+  <main class="shop">
+    <div class="doors">
+      <section class="door" style="--c:var(--hand)">
+        <h2>The front door</h2>
+        <p>Buttons, forms and lists: the way people use any website. An AI agent can come in
+           this way too, by reading the page and clicking and typing like a person. It works on
+           every website, but the agent has to find its way around, which is slower and can go wrong.</p>
+        <p class="engine">In this project: Engine 2, Playwright. Shown in blue.</p>
+      </section>
+      <section class="door" style="--c:var(--ai)">
+        <h2>The AI door</h2>
+        <p>A short menu of actions the shop publishes for agents, like "add to cart" or "book a table".
+           The agent asks for exactly what it wants and gets an exact answer back. Nothing to search
+           for, nothing to misread.</p>
+        <p class="engine">In this project: Engine 1, WebMCP. Shown in green.</p>
+      </section>
+    </div>
+    <div class="switch">
+      <p>Almost no real website has an AI door yet. So the agent checks every page it opens:
+         if there is an AI door, it uses it; if not, it uses the front door. Switching between
+         the two, in the middle of a task, is what this project does.</p>
+    </div>
+
+    <h2>The shops</h2>
+    <div class="street" id="street"></div>
+  </main>
+
+  <footer class="foot">Every business here is fictional. Agent Street is the test site for the
+    MCP-Based Autonomous Browser Agent, a final-year project at Vishwakarma University, Pune.</footer>
+
+  <script>
+    const SHOPS = [
+      ["todo-app", "Tickoff", "A shared to-do list for the house.", 2, "#E8A317", "#2A1C00"],
+      ["product-search", "Kirana Corner", "The neighbourhood store. Search by category or price.", 1, "#C83A22", "#fff"],
+      ["shopping-cart", "Dhaav Sports", "Running gear. Fill a cart and place an order.", 3, "#6E2C66", "#fff"],
+      ["booking", "Tiffin House", "A small restaurant. Book a table for a time slot.", 2, "#7A4E2D", "#fff"],
+      ["directory-search", "Gully Guide", "Local cafes, gyms and garages.", 1, "#C2456E", "#fff"],
+      ["dashboard", "Shopfront Stats", "This month's visitors, revenue and signups.", 2, "#3E4A59", "#fff"],
+      ["contact-form", "Help Counter", "Send a message to the team.", 1, "#7A1F2B", "#fff"],
+      ["calendar", "Diary", "Add and list events.", 2, "#CDB891", "#2A2414"],
+      ["big-catalog", "The Godown", "Three hundred products. A test of what happens when a page is big.", 2, "#2B2D33", "#F4C24D"],
+    ];
+    document.getElementById("street").innerHTML = SHOPS.map(([path, name, what, n, s, si]) => `
+      <a class="front" href="/${path}/" style="--s:${s};--si:${si}">
+        <div class="front__sign"><div class="front__name">${name}</div></div>
+        <div class="front__awning"></div>
+        <div class="front__body">
+          <p class="front__what">${what}</p>
+          <span class="front__door">AI door: ${n} action${n === 1 ? "" : "s"}</span>
+        </div>
+      </a>`).join("");
+  </script>
+</body>
+</html>

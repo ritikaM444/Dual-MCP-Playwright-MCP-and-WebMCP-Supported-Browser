@@ -1,20 +1,93 @@
 <!doctype html>
-<html lang="en"><head><meta charset="utf-8"/><title>WebMCP Demo — Business Directory</title>
-<style>body{font-family:system-ui,sans-serif;max-width:32rem;margin:3rem auto}.biz{padding:.4rem 0;border-bottom:1px solid #ddd}</style></head>
-<body>
-<h1>WebMCP Demo — Business Directory</h1>
-<p>Tool: <code>search-directory</code> — two-filter search (text + category).</p>
-<div id="results"></div>
-<script src="/webmcp-polyfill.js"></script>
-<script>
-const DIRECTORY=[{name:"Blue Bottle Cafe",category:"cafe",area:"Downtown"},{name:"Green Leaf Yoga",category:"fitness",area:"Uptown"},
-{name:"Quick Fix Auto",category:"automotive",area:"Downtown"},{name:"Sunrise Bakery",category:"cafe",area:"Uptown"},
-{name:"Peak Performance Gym",category:"fitness",area:"Downtown"}];
-function render(items){document.getElementById("results").innerHTML=items.map(b=>`<div class="biz">${b.name} — ${b.category}, ${b.area}</div>`).join("");}
-render(DIRECTORY);
-document.modelContext.registerTool({name:"search-directory",description:"Search the business directory by name text and/or category",
-inputSchema:{type:"object",properties:{query:{type:"string",description:"Optional text to match against business names"},category:{type:"string",description:"Optional category, e.g. cafe, fitness"}}},
-execute({query,category}){const q=(query||"").toLowerCase();
-const f=DIRECTORY.filter(b=>(!q||b.name.toLowerCase().includes(q))&&(!category||b.category===category));
-render(f);return{content:[{type:"text",text:JSON.stringify(f)}]};}});
-</script></body></html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Gully Guide — local places</title>
+  <link rel="stylesheet" href="/_shared/street.css" />
+</head>
+<body style="--sign:#C2456E; --sign-ink:#FFFFFF">
+  <header class="sign"><div class="sign__inner">
+    <a class="sign__street" href="/">Back to Agent Street</a>
+    <h1 class="sign__name">Gully Guide</h1>
+    <p class="sign__line">Every place worth knowing in the neighbourhood.</p>
+  </div></header>
+  <div class="awning"></div>
+
+  <main class="shop">
+    <div class="field" style="max-width:24rem">
+      <label for="q">Search by name</label>
+      <input id="q" type="search" autocomplete="off" placeholder="Bakery" />
+    </div>
+    <div class="chips" role="group" aria-label="Kind of place">
+      <button class="chip" type="button" data-cat="" aria-pressed="true">All</button>
+      <button class="chip" type="button" data-cat="cafe" aria-pressed="false">Cafes</button>
+      <button class="chip" type="button" data-cat="fitness" aria-pressed="false">Fitness</button>
+      <button class="chip" type="button" data-cat="automotive" aria-pressed="false">Car care</button>
+    </div>
+    <ul class="rows panel" id="results"></ul>
+  </main>
+
+  <footer class="foot">Fictional business. Part of Agent Street, the demo site for the MCP Browser Agent project.</footer>
+
+  <script src="/webmcp-polyfill.js"></script>
+  <script src="/_shared/ai-door.js"></script>
+  <script>
+    const DIRECTORY = [
+      { name: "Blue Bottle Cafe", category: "cafe", area: "Downtown" },
+      { name: "Green Leaf Yoga", category: "fitness", area: "Uptown" },
+      { name: "Quick Fix Auto", category: "automotive", area: "Downtown" },
+      { name: "Sunrise Bakery", category: "cafe", area: "Uptown" },
+      { name: "Peak Performance Gym", category: "fitness", area: "Downtown" },
+    ];
+
+    function find(query, category) {
+      const q = (query || "").toLowerCase();
+      return DIRECTORY.filter(
+        (b) => (!q || b.name.toLowerCase().includes(q)) && (!category || b.category === category)
+      );
+    }
+
+    function render(items, fromAgent) {
+      document.getElementById("results").innerHTML = items.length
+        ? items.map((b) => `<li class="${fromAgent ? "ai-touched" : ""}">
+            <span><span class="name">${b.name}</span><br><span class="meta">${b.area}</span></span>
+            <span class="tag">${b.category}</span></li>`).join("")
+        : '<li><p class="empty">Nothing matches. Clear the search or pick All.</p></li>';
+    }
+
+    // Front door
+    let cat = "";
+    const q = document.getElementById("q");
+    const apply = () => render(find(q.value, cat));
+    q.addEventListener("input", apply);
+    document.querySelectorAll(".chip").forEach((b) => b.addEventListener("click", () => {
+      cat = b.dataset.cat;
+      document.querySelectorAll(".chip").forEach((x) => x.setAttribute("aria-pressed", String(x === b)));
+      apply();
+    }));
+    render(DIRECTORY);
+
+    // AI door
+    document.modelContext.registerTool({
+      name: "search-directory",
+      description: "Search the business directory by name text and/or category",
+      inputSchema: {
+        type: "object",
+        properties: {
+          query: { type: "string", description: "Optional text to match against business names" },
+          category: { type: "string", description: "Optional category, e.g. cafe, fitness" },
+        },
+      },
+      execute({ query, category }) {
+        const f = find(query, category);
+        q.value = query || "";
+        cat = category || "";
+        document.querySelectorAll(".chip").forEach((x) => x.setAttribute("aria-pressed", String(x.dataset.cat === cat)));
+        render(f, true);
+        return { content: [{ type: "text", text: JSON.stringify(f) }] };
+      },
+    });
+  </script>
+</body>
+</html>

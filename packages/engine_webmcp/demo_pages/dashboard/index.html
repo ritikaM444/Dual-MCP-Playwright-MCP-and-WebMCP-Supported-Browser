@@ -1,19 +1,79 @@
 <!doctype html>
-<html lang="en"><head><meta charset="utf-8"/><title>WebMCP Demo — Analytics Dashboard</title>
-<style>body{font-family:system-ui,sans-serif;max-width:32rem;margin:3rem auto}.metric{padding:.4rem 0;border-bottom:1px solid #ddd}</style></head>
-<body>
-<h1>WebMCP Demo — Analytics Dashboard</h1>
-<p>Tools: <code>list-metrics</code>, <code>get-metric</code> — read-only queries, no mutation.</p>
-<div id="metrics"></div>
-<script src="/webmcp-polyfill.js"></script>
-<script>
-const METRICS={visitors:15234,revenue:82000,signups:342,bounceRate:0.38};
-document.getElementById("metrics").innerHTML=Object.entries(METRICS).map(([k,v])=>`<div class="metric">${k}: ${v}</div>`).join("");
-document.modelContext.registerTool({name:"list-metrics",description:"List the names of all available metrics",
-inputSchema:{type:"object",properties:{}},
-execute(){return{content:[{type:"text",text:JSON.stringify(Object.keys(METRICS))}]};}});
-document.modelContext.registerTool({name:"get-metric",description:"Get the current value of a named metric",
-inputSchema:{type:"object",properties:{metric:{type:"string",description:"One of the names from list-metrics"}},required:["metric"]},
-execute({metric}){if(!(metric in METRICS))return{content:[{type:"text",text:`Unknown metric "${metric}". Try list-metrics first.`}]};
-return{content:[{type:"text",text:JSON.stringify({metric,value:METRICS[metric]})}]};}});
-</script></body></html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Shopfront Stats — today's numbers</title>
+  <link rel="stylesheet" href="/_shared/street.css" />
+  <style>
+    .tiles { display: grid; grid-template-columns: repeat(auto-fit, minmax(13rem, 1fr)); gap: 1rem; }
+    .tile { background: var(--card); border: 1px solid var(--line); border-radius: var(--radius); padding: 1.1rem 1.2rem; }
+    .tile .label { color: var(--ink-soft); }
+    .tile .value { font-family: var(--display); font-stretch: 100%; font-weight: 800;
+                   font-size: clamp(1.6rem, 2.6vw, 2rem); line-height: 1.1; white-space: nowrap; font-variant-numeric: tabular-nums; margin-top: 0.25rem; }
+  </style>
+</head>
+<body style="--sign:#3E4A59; --sign-ink:#FFFFFF">
+  <header class="sign"><div class="sign__inner">
+    <a class="sign__street" href="/">Back to Agent Street</a>
+    <h1 class="sign__name">Shopfront Stats</h1>
+    <p class="sign__line">How the street's online shop did this month.</p>
+  </div></header>
+  <div class="awning"></div>
+
+  <main class="shop">
+    <h2>This month</h2>
+    <div class="tiles" id="tiles"></div>
+  </main>
+
+  <footer class="foot">Fictional business. Part of Agent Street, the demo site for the MCP Browser Agent project.</footer>
+
+  <script src="/webmcp-polyfill.js"></script>
+  <script src="/_shared/ai-door.js"></script>
+  <script>
+    const METRICS = { visitors: 15234, revenue: 82000, signups: 342, bounceRate: 0.38 };
+
+    // How each metric is shown to people. The tool returns the raw value.
+    const DISPLAY = {
+      visitors: ["Visitors", (v) => v.toLocaleString("en-IN")],
+      revenue: ["Revenue", (v) => "Rs. " + v.toLocaleString("en-IN")],
+      signups: ["New signups", (v) => v.toLocaleString("en-IN")],
+      bounceRate: ["Left after one page", (v) => Math.round(v * 100) + "%"],
+    };
+
+    function render(touched) {
+      document.getElementById("tiles").innerHTML = Object.entries(METRICS).map(([k, v]) =>
+        `<div class="tile ${k === touched ? "ai-touched" : ""}">
+           <div class="label">${DISPLAY[k][0]}</div><div class="value">${DISPLAY[k][1](v)}</div></div>`).join("");
+    }
+    render();
+
+    // AI door
+    document.modelContext.registerTool({
+      name: "list-metrics",
+      description: "List the names of all available metrics",
+      inputSchema: { type: "object", properties: {} },
+      execute() {
+        return { content: [{ type: "text", text: JSON.stringify(Object.keys(METRICS)) }] };
+      },
+    });
+
+    document.modelContext.registerTool({
+      name: "get-metric",
+      description: "Get the current value of a named metric",
+      inputSchema: {
+        type: "object",
+        properties: { metric: { type: "string", description: "One of the names from list-metrics" } },
+        required: ["metric"],
+      },
+      execute({ metric }) {
+        if (!(metric in METRICS)) {
+          return { content: [{ type: "text", text: `Unknown metric "${metric}". Try list-metrics first.` }] };
+        }
+        render(metric);
+        return { content: [{ type: "text", text: JSON.stringify({ metric, value: METRICS[metric] }) }] };
+      },
+    });
+  </script>
+</body>
+</html>

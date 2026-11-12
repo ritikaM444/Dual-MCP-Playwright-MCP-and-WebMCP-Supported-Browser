@@ -32,8 +32,19 @@ class Handler(http.server.SimpleHTTPRequestHandler):
         super().do_GET()
 
 
-class ReusableTCPServer(socketserver.TCPServer):
+class ReusableTCPServer(socketserver.ThreadingTCPServer):
+    """One thread per connection.
+
+    Must be threaded. A single-threaded server serves one connection at a
+    time, and browsers open spare connections in advance that send nothing
+    for a while; until that idle connection closes, every other request
+    waits. With the Agent Street pages (7 files per page instead of 2) that
+    showed up as 15-20 s page loads and failed navigations in a benchmark
+    run (Nov 2026). Python's own `python -m http.server` is threaded for the
+    same reason.
+    """
     allow_reuse_address = True
+    daemon_threads = True   # Ctrl+C stops the server without waiting on open connections
 
 
 def main() -> None:
